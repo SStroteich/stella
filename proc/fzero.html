@@ -4,9 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-   
    <meta name="description" content="stella is a flux tube gyrokinetic code for micro-stability and turbulence simulations of strongly magnetised plasma">
-    
     <meta name="author" content="The stella team" >
     <link rel="icon" href="../favicon.png">
 
@@ -16,10 +14,7 @@
     <link href="../css/pygments.css" rel="stylesheet">
     <link href="../css/font-awesome.min.css" rel="stylesheet">
     <link href="../css/local.css" rel="stylesheet">
-    
     <link  href="../tipuesearch/tipuesearch.css" rel="stylesheet">
-    
-    
 
     <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
     <!--[if lt IE 9]>
@@ -48,58 +43,28 @@
         </div>
         <div id="navbar" class="navbar-collapse collapse">
           <ul class="nav navbar-nav">
-        
+            <li><a href='../page/index.html'>README</a></li>
             <li class="dropdown hidden-xs visible-sm visible-md hidden-lg">
               <a href="#" class="dropdown-toggle"
               data-toggle="dropdown" role="button"
               aria-haspopup="true"
      aria-expanded="false">Contents <span class="caret"></span></a>
         <ul class="dropdown-menu">
-          
-              
             <li><a href="../lists/files.html">Source Files</a></li>
-        
-        
-        
             <li><a href="../lists/modules.html">Modules</a></li>
-        
-            
-                                
             <li><a href="../lists/procedures.html">Procedures</a></li>
-        
-               
-            <li><a href="../lists/types.html">Derived Types</a></li>
-        
-        
+                   <li><a href="../lists/types.html">Derived Types</a></li>
             <li><a href="../lists/programs.html">Programs</a></li>
-               
-        
-        
+       
             </ul>
         
             </li>
-
-
 <li class="visible-xs hidden-sm visible-lg"><a href="../lists/files.html">Source Files</a></li>
-
-
-
 <li class="visible-xs hidden-sm visible-lg"><a href="../lists/modules.html">Modules</a></li>
-
-
-
 <li class="visible-xs hidden-sm visible-lg"><a href="../lists/procedures.html">Procedures</a></li>
-
-                             
-<li class="visible-xs hidden-sm visible-lg"><a href="../lists/types.html">Derived Types</a></li>
-
-
+                             <li class="visible-xs hidden-sm visible-lg"><a href="../lists/types.html">Derived Types</a></li>
 <li class="visible-xs hidden-sm visible-lg"><a href="../lists/programs.html">Programs</a></li>
-
-
-
           </ul>
-        
         <form action="../search.html" class="navbar-form navbar-right" role="search">
         <div class="form-group">
           <input type="text" class="form-control" placeholder="Search" name="q" id="tipue_search_input" autocomplete="off" required>
@@ -108,51 +73,29 @@
         <button type="submit" class="btn btn-default">Submit</button>
 -->
         </form>
-        
         </div><!--/.nav-collapse -->
       </div>
     </nav>
 
     <div class="container">
-    
-  
   <div class="row">
     <h1>FZERO
       <small>Subroutine</small>
-    
     </h1>
-    
-<div class="row">
+    <div class="row">
   <div class="col-lg-12">
 <div class="well well-sm">
   <ul class="list-inline" style="margin-bottom:0px;display:inline">
-     
-     
-     
-     
-     
-    
-    
      <li><i class="fa fa-list-ol"></i>
        <a data-toggle="tooltip"
     data-placement="bottom" data-html="true"
-    title=" 0.3% of total for procedures.">83 statements</a>
+    title=" 0.2% of total for procedures.">83 statements</a>
      </li> 
-     
-     
-     
     <li><i class="fa fa-code"></i><a href="../src/fzero.f90"> Source File</a></li>
-     
-     
   </ul>
   <ol class="breadcrumb in-well text-right">
-  
-    
      <li><a href='../sourcefile/fzero.f90.html'>fzero.f90</a></li>
-    
      <li><a href='../module/fzero_mod.html'>fzero_mod</a></li>
-    
-  
      <li class="active">FZERO</li>
   </ol>
 </div>
@@ -168,51 +111,19 @@
   
   <div class="row">
     <div class="col-md-3 hidden-xs hidden-sm visible-md visible-lg">
-    
-<div id="sidebar">
-  
-<h3>Contents</h3>
+    <div id="sidebar">
+  <h3>Contents</h3>
  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 <em>None</em>
-
 
 </div>
 
     </div>
     
     <div class="col-md-9" id='text'>
-    <h2>
-public subroutine FZERO(F, B, C, R, RE, AE, IFLAG)
+    <h2>public subroutine FZERO(F, B, C, R, RE, AE, IFLAG)</h2>
     
-    
-   
-</h2>
-    
-  
 
-
-    
     <p><strong>BEGIN PROLOGUE  FZERO
 </strong>PURPOSE  Search for a zero of a function F(X) in a given interval
             (B,C).  It is designed primarily for problems where F(B)
@@ -224,16 +135,16 @@ public subroutine FZERO(F, B, C, R, RE, AE, IFLAG)
 <strong>AUTHOR  Shampine, L. F., (SNLA)
            Watts, H. A., (SNLA)
 </strong>DESCRIPTION</p>
-<div class="codehilite"><pre><span></span> FZERO searches for a zero of a REAL function F(X) between the
- given REAL values B and C until the width of the interval (B,C)
- has collapsed to within a tolerance specified by the stopping
- criterion,
-    ABS(B-C) .LE. 2.*(RW*ABS(B)+AE).
- The method used is an efficient combination of bisection and the
- secant rule and is due to T. J. Dekker.
+<div class="codehilite"><pre><span></span><code> <span class="nv">FZERO</span> <span class="nv">searches</span> <span class="k">for</span> <span class="nv">a</span> <span class="nv">zero</span> <span class="nv">of</span> <span class="nv">a</span> <span class="nv">REAL</span> <span class="nv">function</span> <span class="nv">F</span><span class="ss">(</span><span class="nv">X</span><span class="ss">)</span> <span class="nv">between</span> <span class="nv">the</span>
+ <span class="nv">given</span> <span class="nv">REAL</span> <span class="nv">values</span> <span class="nv">B</span> <span class="nv">and</span> <span class="nv">C</span> <span class="k">until</span> <span class="nv">the</span> <span class="nv">width</span> <span class="nv">of</span> <span class="nv">the</span> <span class="nv">interval</span> <span class="ss">(</span><span class="nv">B</span>,<span class="nv">C</span><span class="ss">)</span>
+ <span class="nv">has</span> <span class="nv">collapsed</span> <span class="nv">to</span> <span class="nv">within</span> <span class="nv">a</span> <span class="nv">tolerance</span> <span class="nv">specified</span> <span class="nv">by</span> <span class="nv">the</span> <span class="nv">stopping</span>
+ <span class="nv">criterion</span>,
+    <span class="nv">ABS</span><span class="ss">(</span><span class="nv">B</span><span class="o">-</span><span class="nv">C</span><span class="ss">)</span> .<span class="nv">LE</span>. <span class="mi">2</span>.<span class="o">*</span><span class="ss">(</span><span class="nv">RW</span><span class="o">*</span><span class="nv">ABS</span><span class="ss">(</span><span class="nv">B</span><span class="ss">)</span><span class="o">+</span><span class="nv">AE</span><span class="ss">)</span>.
+ <span class="nv">The</span> <span class="nv">method</span> <span class="nv">used</span> <span class="nv">is</span> <span class="nv">an</span> <span class="nv">efficient</span> <span class="nv">combination</span> <span class="nv">of</span> <span class="nv">bisection</span> <span class="nv">and</span> <span class="nv">the</span>
+ <span class="nv">secant</span> <span class="nv">rule</span> <span class="nv">and</span> <span class="nv">is</span> <span class="nv">due</span> <span class="nv">to</span> <span class="nv">T</span>. <span class="nv">J</span>. <span class="nv">Dekker</span>.
 
- Description Of Arguments
-</pre></div>
+ <span class="nv">Description</span> <span class="nv">Of</span> <span class="nv">Arguments</span>
+</code></pre></div>
 
 <p>F     :EXT   - Name of the REAL external function.  This name must
                   be in an EXTERNAL statement in the calling program.
@@ -261,7 +172,7 @@ public subroutine FZERO(F, B, C, R, RE, AE, IFLAG)
 <p>IFLAG :OUT   - A status code.  User must check IFLAG after each
                   call.  Control returns to the user from FZERO in all
                   cases.</p>
-<div class="codehilite"><pre><span></span>            1  B is within the requested tolerance of a zero.
+<div class="codehilite"><pre><span></span><code>            1  B is within the requested tolerance of a zero.
                The interval (B,C) collapsed to the requested
                tolerance, the function changes sign in (B,C), and
                F(X) decreased in magnitude as (B,C) collapsed.
@@ -282,7 +193,7 @@ public subroutine FZERO(F, B, C, R, RE, AE, IFLAG)
                zero of even multiplicity, or neither of these.
 
             5  Too many (.GT. 500) function evaluations used.
-</pre></div>
+</code></pre></div>
 
 <p><strong>REFERENCES  L. F. Shampine and H. A. Watts, FZERO, a root-solving
                  code, Report SC-TM-70-631, Sandia Laboratories,
@@ -303,204 +214,92 @@ public subroutine FZERO(F, B, C, R, RE, AE, IFLAG)
 **FIRST EXECUTABLE STATEMENT  FZERO</p>
 <p>ER is two times the computer unit roundoff value which is defined
    here by the function EPSILON.</p>
-    
 
     <h3>Arguments</h3>
-    
-      
-<table class="table table-striped varlist">
-<thead><tr><th>Type</th>
-<th>Intent</th><th>Optional</th>
-<th>Attributes</th><th></th><th>Name</th><th></th></thead>
-
-
-
+      <table class="table table-striped varlist">
+<thead><tr><th>Type</th><th>Intent</th><th>Optional</th><th>Attributes</th><th></th><th>Name</th><th></th></thead>
 <tbody>
-
-  
-  
-  
-  
 <tr>
-  
   <td><span class="anchor" id="variable-f"></span>real</td>
-  <td></td>
-  <td></td>
-  
-  <td></td><td>::</td>
+<td></td>
+  <td></td>  <td></td><td>::</td>
   <td><strong>F</strong></td><td></td>
-  
 </tr>
-
-  
-  
-  
-  
 <tr>
-  
   <td><span class="anchor" id="variable-b"></span>real</td>
-  <td></td>
-  <td></td>
-  
-  <td></td><td>::</td>
+<td></td>
+  <td></td>  <td></td><td>::</td>
   <td><strong>B</strong></td><td></td>
-  
 </tr>
-
-  
-  
-  
-  
 <tr>
-  
   <td><span class="anchor" id="variable-c"></span>real</td>
-  <td></td>
-  <td></td>
-  
-  <td></td><td>::</td>
+<td></td>
+  <td></td>  <td></td><td>::</td>
   <td><strong>C</strong></td><td></td>
-  
 </tr>
-
-  
-  
-  
-  
 <tr>
-  
   <td><span class="anchor" id="variable-r"></span>real</td>
-  <td></td>
-  <td></td>
-  
-  <td></td><td>::</td>
+<td></td>
+  <td></td>  <td></td><td>::</td>
   <td><strong>R</strong></td><td></td>
-  
 </tr>
-
-  
-  
-  
-  
 <tr>
-  
   <td><span class="anchor" id="variable-re"></span>real</td>
-  <td></td>
-  <td></td>
-  
-  <td></td><td>::</td>
+<td></td>
+  <td></td>  <td></td><td>::</td>
   <td><strong>RE</strong></td><td></td>
-  
 </tr>
-
-  
-  
-  
-  
 <tr>
-  
   <td><span class="anchor" id="variable-ae"></span>real</td>
-  <td></td>
-  <td></td>
-  
-  <td></td><td>::</td>
+<td></td>
+  <td></td>  <td></td><td>::</td>
   <td><strong>AE</strong></td><td></td>
-  
 </tr>
-
-  
-  
-  
-  
 <tr>
-  
   <td><span class="anchor" id="variable-iflag"></span>integer</td>
-  <td></td>
-  <td></td>
-  
-  <td></td><td>::</td>
+<td></td>
+  <td></td>  <td></td><td>::</td>
   <td><strong>IFLAG</strong></td><td></td>
-  
 </tr>
-
 </tbody>
 </table>
 
-    
-    
-    
-    
-     
     <br>
 
     <section class="visible-xs visible-sm hidden-md">
-      
-<h3>Contents</h3>
+      <h3>Contents</h3>
  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 <em>None</em>
-
 
     </section>
     <br class="visible-xs visible-sm hidden-md">
 
-    
 
-    
-    
-    
     
     
 
     
     
-    
-    
-    
 
 
-    
-    
     
     
     </div>
   </div>
-
 
     <hr>    
     </div> <!-- /container -->
     <footer>
       <div class="container">
       <div class="row">
-        <div class="col-xs-6 col-md-6"><p>stella was developed by The stella team<br>&copy; 2021 
-                                          <br /><small>v0.3-51-gf1cc086</small></p>
+        <div class="col-xs-6 col-md-6"><p>stella was developed by The stella team<br>&copy; 2022 
+<br /><small>v0.3-524-g857f8b0</small></p>
         </div>
         <div class="col-xs-6 col-md-6">
           <p class="text-right">
             Documentation generated by 
             <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
-             on 2021-07-27T13:58:25.072682 
-            
-          </p>
+ on 2022-09-07T11:18:53.659278           </p>
         </div>
       </div>
       <br>
@@ -527,14 +326,11 @@ public subroutine FZERO(F, B, C, R, RE, AE, IFLAG)
         extensions: ['tex2jax.js','mml2jax.js','MathMenu.js','MathZoom.js']
       });
     </script>
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
-    
     
     <script src="../tipuesearch/tipuesearch_content.js"></script>
     <script src="../tipuesearch/tipuesearch_set.js"></script>
     <script src="../tipuesearch/tipuesearch.js"></script>
-    
     
   </body>
 </html>

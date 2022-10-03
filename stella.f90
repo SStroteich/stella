@@ -1,6 +1,6 @@
 program stella
 
-   use redistribute, only: scatter
+   use redistribute, only: scatter,gather,parallel_scatter_complex,report_map_property
    use job_manage, only: time_message, checkstop, job_fork
    use job_manage, only: checktime
    use run_parameters, only: nstep, tend, fphi, fapar
@@ -14,6 +14,13 @@ program stella
    use file_utils, only: error_unit, flush_output_file
    use git_version, only: get_git_version, get_git_date
 
+
+
+   use mp, only: proc0
+   use kt_grids, only: naky, nakx
+   use vpamu_grids, only: nvpa, nmu
+   use zgrid, only: nzgrid, ntubes
+
    implicit none
 
    logical :: debug = .false.
@@ -25,7 +32,12 @@ program stella
    real, dimension(2) :: time_init = 0.
    real, dimension(2) :: time_diagnostics = 0.
    real, dimension(2) :: time_total = 0.
+   real, dimension(2) :: time_gather_scatter = 0.
 
+   integer :: iky, ikx, ized, ivpa, imu
+   character (len=128) :: file_name_gnew, file_name_gnew2, file_name_gvmu, file_name_gvmu2
+
+   character(len=128) :: format_string, istep_string
    call parse_command_line()
 
    !> Initialize stella
@@ -38,24 +50,74 @@ program stella
    !> Advance stella until istep=nstep
    if (debug) write (*, *) 'stella::advance_stella'
    istep = istep0 + 1
+   call report_map_property(kxkyz2vmu)
    do while ((code_time <= tend .AND. tend > 0) .OR. (istep <= nstep .AND. nstep > 0))
-      if (debug) write (*, *) 'istep = ', istep
-      if (mod(istep, 10) == 0) then
-         call checkstop(stop_stella)
-         call checktime(avail_cpu_time, stop_stella)
-      end if
-      if (stop_stella) exit
-      call advance_stella(istep)
-      call update_time
-      if (nsave > 0 .and. mod(istep, nsave) == 0) then
-         call scatter(kxkyz2vmu, gnew, gvmu)
-         call stella_save_for_restart(gvmu, istep, code_time, code_dt, istatus)
-      end if
-      call time_message(.false., time_diagnostics, ' diagnostics')
-      call diagnose_stella(istep)
-      call time_message(.false., time_diagnostics, ' diagnostics')
-      ierr = error_unit()
-      call flush_output_file(ierr)
+
+      if ( proc0 .and. mod(istep, 1) == 0 ) write (*,*) 'istep: ', istep
+      !format_string = "(I3.3)"
+      !write (istep_string,format_string) 'istep: ', istep
+      !file_name_gnew='gnew_'//trim(istep_string)//'.txt'
+      !file_name_gvmu='gvmu_'//trim(istep_string)//'.txt'
+      !if (proc0) then
+      !   write(*,*) 'nakx ', nakx, ' naky ', naky, ' nzed ', nzgrid, ' ntubes ', ntubes, ' nvpa ', nvpa, ' nmu ', nmu
+      !   open(unit=66, file = trim(file_name_gnew))
+      !   do iky = 1, naky
+      !      do ikx = 1, nakx
+      !         do ized = -nzgrid, nzgrid 
+      !            write(66,*) gnew(iky,ikx,ized,1,:)
+      !         enddo
+      !      enddo
+      !   enddo
+      !   close(66)
+      !endif
+      !if (proc0) then
+      !   call time_message(.true., time_gather_scatter, 'scatter begin')
+      !endif
+      !call parallel_scatter_complex(kxkyz2vmu, gnew, gvmu)
+      call scatter(kxkyz2vmu, gnew, gvmu)
+      !if (proc0) then
+      !   call time_message(.true., time_gather_scatter, 'scatter end')
+      !endif
+
+      !if (proc0) then 
+      !   open(unit=69, file = trim(file_name_gvmu))
+      !   do ivpa = 1, nvpa
+      !      do imu = 1, nmu
+      !         write(69,*) gvmu(ivpa,imu,:)
+      !      enddo
+      !   enddo
+      !   close(69)
+      !endif
+      !if (proc0) then
+      !   call time_message(.true., time_gather_scatter, 'gather begin')
+      !endif
+
+      !call gather(kxkyz2vmu, gvmu, gnew)
+      !if (proc0) then
+      !   call time_message(.true., time_gather_scatter, 'gather end')
+      !endif
+
+      !file_name_gnew2='gnew2_'//trim(istep_string)//'.txt'
+      !file_name_gvmu2='gvmu2_'//trim(istep_string)//'.txt'
+      !if (proc0) then 
+      !   open(unit=70, file = trim(file_name_gnew2))
+      !   open(unit=71, file = trim(file_name_gvmu2))
+      !   do iky = 1, naky
+      !      do ikx = 1, nakx
+      !         do ized = -nzgrid, nzgrid 
+      !            write(70,*) gnew(iky,ikx,ized,1,:)
+      !         enddo
+      !      enddo
+      !   enddo
+      !   do ivpa = 1, nvpa
+      !      do imu = 1, nmu
+      !         write(71,*) gvmu(ivpa,imu,:)
+      !      enddo
+      !   enddo
+      !   close(70)
+      !   close(71)
+      !endif
+
       istep = istep + 1
    end do
 

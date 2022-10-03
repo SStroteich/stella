@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+   <meta name="description" content="stella is a flux tube gyrokinetic code for micro-stability and turbulence simulations of strongly magnetised plasma">
+    <meta name="author" content="The stella team" >
+    <link rel="icon" href="../../favicon.png">
+
+    <title>Input parameters &ndash; stella</title>
+
+    <link href="../../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../../css/pygments.css" rel="stylesheet">
+    <link href="../../css/font-awesome.min.css" rel="stylesheet">
+    <link href="../../css/local.css" rel="stylesheet">
+    <link  href="../../tipuesearch/tipuesearch.css" rel="stylesheet">
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    
+    <script src="../../js/jquery-2.1.3.min.js"></script>
+    <script src="../../js/svg-pan-zoom.min.js"></script>
+
+  </head>
+
+  <body>
+
+    <!-- Fixed navbar -->
+    <nav class="navbar navbar-inverse navbar-fixed-top">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="../../index.html">stella </a>
+        </div>
+        <div id="navbar" class="navbar-collapse collapse">
+          <ul class="nav navbar-nav">
+            <li><a href='../../page/index.html'>Manual</a></li>
+            <li class="dropdown hidden-xs visible-sm visible-md hidden-lg">
+              <a href="#" class="dropdown-toggle"
+              data-toggle="dropdown" role="button"
+              aria-haspopup="true"
+     aria-expanded="false">Contents <span class="caret"></span></a>
+        <ul class="dropdown-menu">
+            <li><a href="../../lists/files.html">Source Files</a></li>
+            <li><a href="../../lists/modules.html">Modules</a></li>
+            <li><a href="../../lists/procedures.html">Procedures</a></li>
+                   <li><a href="../../lists/types.html">Derived Types</a></li>
+            <li><a href="../../lists/programs.html">Programs</a></li>
+       
+            </ul>
+        
+            </li>
+<li class="visible-xs hidden-sm visible-lg"><a href="../../lists/files.html">Source Files</a></li>
+<li class="visible-xs hidden-sm visible-lg"><a href="../../lists/modules.html">Modules</a></li>
+<li class="visible-xs hidden-sm visible-lg"><a href="../../lists/procedures.html">Procedures</a></li>
+                             <li class="visible-xs hidden-sm visible-lg"><a href="../../lists/types.html">Derived Types</a></li>
+<li class="visible-xs hidden-sm visible-lg"><a href="../../lists/programs.html">Programs</a></li>
+          </ul>
+        <form action="../../search.html" class="navbar-form navbar-right" role="search">
+        <div class="form-group">
+          <input type="text" class="form-control" placeholder="Search" name="q" id="tipue_search_input" autocomplete="off" required>
+        </div>
+<!--
+        <button type="submit" class="btn btn-default">Submit</button>
+-->
+        </form>
+        </div><!--/.nav-collapse -->
+      </div>
+    </nav>
+
+    <div class="container">
+  <div class="row">
+    <h1>Input parameters</h1>
+    <div class="row">
+    <div class="col-lg-12">
+    <div class="well well-sm" style="min-height: 40px;">
+      <ul class="list-inline" style="margin-bottom:0px; display:inline">
+<!--
+-->
+      </ul>
+        <ol class="breadcrumb in-well">
+         <li><a href='../../page/index.html'>Manual</a></li>
+         <li><a href='../../page/user_manual/index.html'>User Guide</a></li>
+         <li class="active">Input parameters</li>
+      </ol>
+    </div>
+    </div>
+    </div>
+  </div>
+  
+  <div class="row">
+    <div class="col-md-9 col-md-push-3" id='text'>
+      <h1 id="namelist-geo_knobs">namelist <code>geo_knobs</code></h1>
+<h1 id="namelist-millergeo_parameters">namelist <code>millergeo_parameters</code></h1>
+<h1 id="namelist-vmec_parameters">namelist <code>vmec_parameters</code></h1>
+<h1 id="namelist-zgrid_parameters">namelist <code>zgrid_parameters</code></h1>
+<p>Used to control the resolution and boundary condition of the parallel coordinate.</p>
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Variable</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>nzed</code></td>
+<td>integer</td>
+<td>24</td>
+<td>description</td>
+</tr>
+<tr>
+<td><code>nperiod</code></td>
+<td>integer</td>
+<td>1</td>
+<td>Controls number of poloidal turns in the flux tube, which is given by \(n_\mathrm{pol} = 2 n_\mathrm{period} -1\)</td>
+</tr>
+<tr>
+<td><code>ntubes</code></td>
+<td>integer</td>
+<td>1</td>
+<td>Number of cars in the flux tube train</td>
+</tr>
+<tr>
+<td><code>boundary_option</code></td>
+<td>string</td>
+<td><code>'default'</code></td>
+<td>Parallel boundary condition, should be one of <ul><li><code>default</code> zero incoming, no radial connections, suitable for linear simuatlions</li><li>  <code>linked</code> zero incoming with twist-and-shift boundary condition, suitable for nonlinear simulations</li><li>  <code>stellarator</code> Martin's twist-and-shift boundary for stellarators with local shear</li><li> <code>periodic</code> periodic for all modes, with option of a phase shift across the parallel boundary</li><li><code>zero</code>same as <code>default</code></li><li><code>unconnected</code> same as <code>default</code></li><li><code>self-periodic</code> same as <code>periodic</code></li></ul> Note that for all of these options, zonal modes are treated as periodic.</td>
+</tr>
+<tr>
+<td><code>zed_equal_arc</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Arc length is used as the parallel coordinate, so that  \( \boldsymbol{\hat{b} \cdot \nabla} \theta \) is constant.</td>
+</tr>
+<tr>
+<td><code>shat_zero</code></td>
+<td>real</td>
+<td>\(10^{-5}\)</td>
+<td>The minimum value of magnetic shear (\(\hat{s}\)) needed to employ the linked boundary condition. Otherwise, periodic boundary conditions are used</td>
+</tr>
+<tr>
+<td><code>grad_x_grad_y_zero</code></td>
+<td>real</td>
+<td>\(10^{-5}\)</td>
+<td>minimum \(\nabla x \cdot \nabla y \) value at the end of the flux-tube which we assume periodic boundary conditions instead of the stellarator symmetric ones when using stellarator boundary condition</td>
+</tr>
+<tr>
+<td><code>dkx_over_dky</code></td>
+<td>real</td>
+<td>-1</td>
+<td>Set the desired ratio of \(dkx/dky\) for \(j_\mathrm{twist}\) when using the stellarator boundary condition.</td>
+</tr>
+</tbody>
+</table>
+<h1 id="namelist-vpamu_grid_parameters">namelist <code>vpamu_grid_parameters</code></h1>
+<table class="table table-striped">
+<thead>
+<tr>
+<th>Variable</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>variable</em></td>
+<td>integer</td>
+<td>1</td>
+<td>description</td>
+</tr>
+</tbody>
+</table>
+<h1 id="namelist-kt_grids_knobs">namelist <code>kt_grids_knobs</code></h1>
+<h1 id="namelist-kt_grids_range_parameters">namelist <code>kt_grids_range_parameters</code></h1>
+<h1 id="namelist-kt_grids_box_parameters">namelist <code>kt_grids_box_parameters</code></h1>
+<h1 id="namelist-layouts_knobs">namelist <code>layouts_knobs</code></h1>
+<h1 id="namelist-physics_flags">namelist <code>physics_flags</code></h1>
+<h1 id="namelist-parameters">namelist <code>parameters</code></h1>
+<h1 id="namelist-knobs">namelist <code>knobs</code></h1>
+<h1 id="namelist-init_g_knobs">namelist <code>init_g_knobs</code></h1>
+<h1 id="namelist-species_knobs">namelist <code>species_knobs</code></h1>
+<h1 id="namelist-species_parameters">namelist <code>species_parameters</code></h1>
+<h1 id="namelist-time_advance_knobs">namelist <code>time_advance_knobs</code></h1>
+<h1 id="namelist-stella_diagnostics_knobs">namelist <code>stella_diagnostics_knobs</code></h1>
+<h1 id="namelist-multibox_parameters">namelist <code>multibox_parameters</code></h1>
+<h1 id="namelist-sources">namelist <code>sources</code></h1>
+<h1 id="namelist-dissipation">namelist <code>dissipation</code></h1>
+<h1 id="namelist-collisions_dougherty">namelist <code>collisions_dougherty</code></h1>
+<h1 id="namelist-collisions_fp">namelist <code>collisions_fp</code></h1>
+<h1 id="namelist-hyper">namelist <code>hyper</code></h1>
+<h1 id="namelist-sfincs_input">namelist <code>sfincs_input</code></h1>
+<h1 id="namelist-neoclassical_input">namelist <code>neoclassical_input</code></h1>
+    </div>
+    <div class="col-md-3 col-md-pull-9">
+      <hr class="visible-xs visible-sm">
+        <div class="well toc">
+          <ul class="nav nav-stacked nav-pills">
+            <li role="presentation" class="title"><a href='../../page/index.html'>Manual</a></li>
+          </ul>
+          <hr>
+          <ul class="nav nav-stacked nav-pills">
+            <li role="presentation">
+            <a href='../../page/developer_manual/index.html'>Developer guide</a>
+            <ul class="nav nav-stacked nav-pills">
+                          <li role="presentation">
+            <a href='../../page/developer_manual/CMake.html'>CMake in stella</a>
+            </li>
+            <li role="presentation">
+            <a href='../../page/developer_manual/writing_documentation.html'>Writing Documentation</a>
+            </li>
+
+            </ul>
+            </li>
+            <li role="presentation">
+            <a href='../../page/user_manual/index.html'>User Guide</a>
+            <ul class="nav nav-stacked nav-pills">
+                          <li role="presentation">
+            <a href='../../page/user_manual/CMake.html'>CMake in stella</a>
+            </li>
+            <li role="presentation" class="disabled">
+            <a href='../../page/user_manual/namelists.html'>Input parameters</a>
+            </li>
+
+            </ul>
+            </li>
+          </ul>
+        </div>
+    </div>
+  </div>
+    <hr>    
+    </div> <!-- /container -->
+    <footer>
+      <div class="container">
+      <div class="row">
+        <div class="col-xs-6 col-md-6"><p>stella was developed by The stella team<br>&copy; 2022 
+<br /><small>v0.3-550-gb65b547</small></p>
+        </div>
+        <div class="col-xs-6 col-md-6">
+          <p class="text-right">
+            Documentation generated by 
+            <a href="https://github.com/Fortran-FOSS-Programmers/ford">FORD</a>
+ on 2022-10-03T11:06:17.126078           </p>
+        </div>
+      </div>
+      <br>
+      </div> <!-- /container -->    
+    </footer>
+
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+<!--
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+-->
+    <script src="../../js/bootstrap.min.js"></script>
+    <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+    <script src="../../js/ie10-viewport-bug-workaround.js"></script>
+
+    <!-- MathJax JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Config({
+        TeX: { extensions: ['AMSmath.js','AMSsymbols.js','noErrors.js','noUndefined.js'], equationNumbers: { autoNumber: 'AMS' } },
+        jax: ['input/TeX','input/MathML','output/HTML-CSS'],
+        extensions: ['tex2jax.js','mml2jax.js','MathMenu.js','MathZoom.js']
+      });
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    
+    <script src="../../tipuesearch/tipuesearch_content.js"></script>
+    <script src="../../tipuesearch/tipuesearch_set.js"></script>
+    <script src="../../tipuesearch/tipuesearch.js"></script>
+    
+  </body>
+</html>

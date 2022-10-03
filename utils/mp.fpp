@@ -34,6 +34,7 @@ module mp
    public :: numnodes, inode
    public :: barrier
    public :: waitany
+   public :: waitall
    public :: split_n_tasks
    public :: mp_abort
    public :: mpireal, mpicmplx, real_size, nbytes_real
@@ -1786,6 +1787,19 @@ contains
       call mpi_waitany(count, requests, requestindex, status, ierror)
 
    end subroutine waitany
+
+   subroutine waitall(count, requests)
+
+      implicit none
+      integer, intent(in) :: count
+      integer, dimension(:), intent(inout) :: requests
+      !integer, dimension(MPI_STATUS_SIZE), intent(out) :: status
+
+      integer :: ierror
+
+      call mpi_waitall(count, requests, MPI_STATUSES_IGNORE, ierror)
+
+   end subroutine waitall
 
    subroutine all_to_group_real(all, group, njobs)
 

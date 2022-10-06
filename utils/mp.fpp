@@ -23,6 +23,9 @@ module mp
    implicit none
    private
 
+   public :: comm_send_complex_array
+   public :: comm_receive_complex_array
+
    public :: init_mp, finish_mp
    public :: broadcast, sum_reduce, sum_allreduce
    public :: broadcast_with_comm
@@ -1429,6 +1432,21 @@ contains
       call mpi_send(z, size(z), mpicmplx, dest, tagp, mp_comm, ierror)
    end subroutine send_complex_array
 
+   subroutine comm_send_complex_array(comm, z, dest, tag)
+      implicit none
+      complex, dimension(:), intent(in) :: z
+      integer, intent(in) :: dest
+      integer, intent(in), optional :: tag
+      integer :: ierror
+      integer :: tagp
+      integer, intent(in) :: comm
+
+      tagp = 0
+      if (present(tag)) tagp = tag
+      call mpi_send(z, size(z), mpicmplx, dest, tagp, comm, ierror)
+   end subroutine comm_send_complex_array
+
+
    subroutine nonblocking_send_complex_array(z, dest, tag, request)
       implicit none
       complex, dimension(:), intent(in) :: z
@@ -1703,6 +1721,21 @@ contains
       call mpi_recv(z, size(z), mpicmplx, src, tagp, mp_comm, &
                     status, ierror)
    end subroutine receive_complex_array
+
+   subroutine comm_receive_complex_array(comm, z, src, tag)
+      implicit none
+      complex, dimension(:), intent(out) :: z
+      integer, intent(in) :: src
+      integer, intent(in), optional :: tag
+      integer :: ierror
+      integer :: tagp
+      integer :: comm
+      integer, dimension(MPI_STATUS_SIZE) :: status
+      tagp = 0
+      if (present(tag)) tagp = tag
+      call mpi_recv(z, size(z), mpicmplx, src, tagp, comm, &
+                    status, ierror)
+   end subroutine comm_receive_complex_array
 
    subroutine receive_complex_2array(z, src, tag)
       implicit none

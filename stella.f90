@@ -2,7 +2,7 @@ program stella
 
    use redistribute, only: scatter,gather,parallel_scatter_complex,report_map_property
    use job_manage, only: time_message, checkstop, job_fork
-   use job_manage, only: checktime
+   use job_manage, only: checktime, timer_local
    use run_parameters, only: nstep, tend, fphi, fapar
    use run_parameters, only: avail_cpu_time
    use stella_time, only: update_time, code_time, code_dt
@@ -70,14 +70,27 @@ program stella
       !   enddo
       !   close(66)
       !endif
-      !if (proc0) then
-      !   call time_message(.true., time_gather_scatter, 'scatter begin')
-      !endif
-      !call parallel_scatter_complex(kxkyz2vmu, gnew, gvmu)
+      if (proc0) then
+         time_gather_scatter(1) = timer_local()
+      endif
+
+      call parallel_scatter_complex(kxkyz2vmu, gnew, gvmu)
+
+      if (proc0) then
+         time_gather_scatter(2) = timer_local()
+         write(*,*) "nonblocking: ", time_gather_scatter(2) - time_gather_scatter(1)
+      endif
+
+      if (proc0) then
+         time_gather_scatter(1) = timer_local()
+      endif
+
       call scatter(kxkyz2vmu, gnew, gvmu)
-      !if (proc0) then
-      !   call time_message(.true., time_gather_scatter, 'scatter end')
-      !endif
+
+      if (proc0) then
+         time_gather_scatter(2) = timer_local()
+         write(*,*) "blocking: ", time_gather_scatter(2) - time_gather_scatter(1)
+      endif
 
       !if (proc0) then 
       !   open(unit=69, file = trim(file_name_gvmu))

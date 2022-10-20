@@ -1055,7 +1055,7 @@ contains
          iadp = min(idp, nproc - idp)
          ! send to idpth next processor
          if (r%to(ipto)%nn > 0) then
-            base = ipto*nproc
+            base = ipto*10000
             offset = base+1+r%to(ipto)%nn
             do i = 1, r%to(ipto)%nn
                send_buff(base+i) = from_here(r%to(ipto)%k(i), &
@@ -1077,7 +1077,7 @@ contains
 
          ! receive from idpth preceding processor
          if (r%from(ipfrom)%nn > 0) then
-            base = ipfrom*nproc
+            base = ipfrom*10000
             offset = base+1+r%from(ipfrom)%nn
 
             ! TODO go through multi block receives and write to corresponding buffer
@@ -1101,7 +1101,7 @@ contains
 
       do idp = 1, nproc - 1
          ipfrom = mod(iproc + nproc - idp, nproc)
-         base = ipfrom*nproc
+         base = ipfrom*10000
          offset = base+1+r%from(ipfrom)%nn
          if (r%from(ipfrom)%nn > 0) then
             do i = 1, r%from(ipfrom)%nn

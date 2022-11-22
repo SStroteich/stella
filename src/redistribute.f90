@@ -1826,14 +1826,13 @@ contains
       complex, dimension(nproc*10000) :: receive_buff
       integer, dimension(nproc) :: send_requests
       integer, dimension(nproc) :: receive_requests
-      integer :: send_request_idx 
-      integer :: receive_request_idx 
+      integer :: send_request_idx
+      integer :: receive_request_idx
       integer, dimension(MPI_STATUS_SIZE) :: statuses
       integer :: idx
       integer :: ierror
 
-
-      integer :: base 
+      integer :: base
       integer :: offset
 
       ! redistribute from local processor to local processor
@@ -1860,64 +1859,61 @@ contains
          iadp = min(idp, nproc - idp)
          ! send to idpth next processor
          if (r%to(ipto)%nn > 0) then
-            base = ipto*nproc
-            offset = base+1+r%to(ipto)%nn
+            base = ipto * nproc
+            offset = base + 1 + r%to(ipto)%nn
             do i = 1, r%to(ipto)%nn
-               send_buff(base+i) = from_here(r%to(ipto)%k(i), &
-                                             r%to(ipto)%l(i), &
-                                             r%to(ipto)%m(i), &
-                                             r%to(ipto)%n(i), &
-                                             r%to(ipto)%o(i))
+               send_buff(base + i) = from_here(r%to(ipto)%k(i), &
+                                               r%to(ipto)%l(i), &
+                                               r%to(ipto)%m(i), &
+                                               r%to(ipto)%n(i), &
+                                               r%to(ipto)%o(i))
             end do
 
             ! TODO send to node local rank 0
-            
 
             send_request_idx = send_request_idx + 1
-            call send(send_buff(base+1:offset), ipto, iproc*nproc+ipto, send_requests(send_request_idx))
+            call send(send_buff(base + 1:offset), ipto, iproc * nproc + ipto, send_requests(send_request_idx))
          end if
 
          ! receive from idpth preceding processor
          if (r%from(ipfrom)%nn > 0) then
-            base = ipfrom*nproc
-            offset = base+1+r%from(ipfrom)%nn
+            base = ipfrom * nproc
+            offset = base + 1 + r%from(ipfrom)%nn
 
             ! TODO go through multi block receives and write to corresponding buffer
 
             receive_request_idx = receive_request_idx + 1
-            call receive(receive_buff(base+1:offset), ipfrom, &
-                 ipfrom*nproc+iproc, receive_requests(receive_request_idx) )
+            call receive(receive_buff(base + 1:offset), ipfrom, &
+                         ipfrom * nproc + iproc, receive_requests(receive_request_idx))
          end if
-         
+
       end do
 
-     !if ( iproc == 0 ) write(*,*) "calling waitall"
-     !if ( iproc == 0 ) write(*,*) "calling waitall send with ", send_request_idx
-     !if ( iproc == 0 ) write(*,*) "calling waitall receive with ", receive_request_idx
-     if( send_request_idx > 0) call waitall( send_request_idx, send_requests ) 
-     if( receive_request_idx > 0) call waitall( receive_request_idx, receive_requests ) 
+      !if ( iproc == 0 ) write(*,*) "calling waitall"
+      !if ( iproc == 0 ) write(*,*) "calling waitall send with ", send_request_idx
+      !if ( iproc == 0 ) write(*,*) "calling waitall receive with ", receive_request_idx
+      if (send_request_idx > 0) call waitall(send_request_idx, send_requests)
+      if (receive_request_idx > 0) call waitall(receive_request_idx, receive_requests)
 
+      !write(*,*) "status: ", statuses(MPI_SOURCE), " ", statuses(MPI_TAG), " ", statuses(MPI_ERROR)
+      do idp = 1, nproc - 1
+         ipfrom = mod(iproc + nproc - idp, nproc)
+         base = ipfrom * nproc
+         offset = base + 1 + r%from(ipfrom)%nn
+         if (r%from(ipfrom)%nn > 0) then
+            do i = 1, r%from(ipfrom)%nn
+               to_here(r%from(ipfrom)%k(i), &
+                       r%from(ipfrom)%l(i), &
+                       r%from(ipfrom)%m(i)) &
+                  = receive_buff(base + i)
+            end do
+            !if( ipfrom*nproc+iproc == 120 ) write(*,*) "merge step tag: ", ipfrom*nproc+iproc, "buff: ", receive_buff(base+1)
+         end if
+      end do
 
-     !write(*,*) "status: ", statuses(MPI_SOURCE), " ", statuses(MPI_TAG), " ", statuses(MPI_ERROR)
-     do idp = 1, nproc - 1
-        ipfrom = mod(iproc + nproc - idp, nproc)
-        base = ipfrom*nproc
-        offset = base+1+r%from(ipfrom)%nn
-        if (r%from(ipfrom)%nn > 0) then
-           do i = 1, r%from(ipfrom)%nn
-              to_here(r%from(ipfrom)%k(i), &
-                      r%from(ipfrom)%l(i), &
-                      r%from(ipfrom)%m(i)) &
-                 = receive_buff(base+i)
-           end do
-           !if( ipfrom*nproc+iproc == 120 ) write(*,*) "merge step tag: ", ipfrom*nproc+iproc, "buff: ", receive_buff(base+1)
-        end if
-     enddo
-
-     call barrier
-     !if ( iproc == 0 ) write(*,*) "done scatter "
+      call barrier
+      !if ( iproc == 0 ) write(*,*) "done scatter "
    end subroutine parallel_scatter_complex
-
 
    subroutine r_redist_35_inv(r, from_here, to_here)
 

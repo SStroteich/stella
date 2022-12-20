@@ -19,6 +19,24 @@ module redistribute
 !
    implicit none
    private
+   integer, dimension(:), allocatable :: local_to_world
+   integer, dimension(:), allocatable :: world_to_local_master
+   integer, dimension(:), allocatable :: world_to_local
+   integer :: world_size
+   integer :: world_rank
+   integer :: world_comm
+   integer :: master_rank
+   integer :: master_size
+   integer :: master_comm
+   integer :: node_rank
+   integer :: node_size   
+   integer :: node_comm
+   integer :: parallel_buff_size
+   complex, dimension(:), allocatable :: send_buff
+   complex, dimension(:), allocatable :: receive_buff
+   complex, dimension(:), allocatable :: gather_buff ! TODO only on 0
+   complex, dimension(:), allocatable :: gather_gather_buff ! TODO only on 0
+
 
    public :: index_list_type, delete_list
    public :: redist_type, delete_redist
@@ -31,7 +49,11 @@ module redistribute
    public :: set_redist_character_type
 
    public :: parallel_scatter_complex
+   public :: parallel_gather_complex
    public :: parallel_scatter_complex_commsplit
+   public :: parallel_gather_complex_commsplit
+   public :: setup_commsplit
+   public :: finish_commsplit
 
 
    interface gather
@@ -138,6 +160,7 @@ contains
             r%to(ip)%nn = 0
          end if
       end do
+      parallel_buff_size = buff_size
 
       do j = 1, size(from_low)
          r%from_low(j) = from_low(j)
@@ -619,12 +642,7 @@ contains
 
    end subroutine c_redist_35_inv
 
-  subroutine get_master_and_node_id( master_size, node_size, world_to_local, world_to_local_master, &
-                                     world_addr, master_id, node_id ) 
-    !integer, dimension(node_size) :: local_to_world
-    integer :: master_size, node_size
-    integer, dimension(master_size*node_size) :: world_to_local_master
-    integer, dimension(master_size*node_size) :: world_to_local
+  subroutine get_master_and_node_id( world_addr, master_id, node_id ) 
     integer :: world_addr 
     integer, intent(out) :: master_id, node_id
 
@@ -633,11 +651,9 @@ contains
 
   end subroutine get_master_and_node_id
 
-  subroutine parallel_scatter_complex_commsplit_impl( r, from_here, to_here, world_rank, world_size, world_comm, &
-                                                   master_rank, master_size, master_comm, node_rank, node_size, node_comm )
+  subroutine parallel_scatter_complex_commsplit( r, from_here, to_here)
      use mpi
-     use mp, only: iproc, send, receive, waitall, waitany, barrier, mp_comm, mpicmplx, &
-                   comm_send_complex_array, comm_receive_complex_array
+     use mp, only: waitall, mpicmplx,barrier
      type(redist_type), intent(in out) :: r
 
      complex, dimension(r%to_low(1):, &
@@ -652,61 +668,458 @@ contains
 
      integer :: i,j, idp, ipto, ipfrom, iadp
 
-     !complex, dimension(master_size*node_size*10000) :: send_buff
-     !complex, dimension(node_size*master_size*node_size*10000) :: gather_buff
 
-     complex, dimension(master_size*node_size*10000) :: send_buff
-     complex, dimension(master_size*node_size*10000) :: receive_buff
-     !complex, dimension(node_size*(master_size*node_size*10000)) :: gather_buff ! TODO only on 0
-     complex, dimension(:), allocatable :: gather_buff ! TODO only on 0
-     complex, dimension(:), allocatable :: gather_gather_buff ! TODO only on 0
-     integer, dimension(world_size) :: send_requests
-     integer, dimension(world_size) :: receive_requests
-     integer, dimension(MPI_STATUS_SIZE) :: statuses
+
+     integer, dimension(master_size) :: local_gather_requests
+     integer, dimension(master_size) :: global_gather_requests
+     integer, dimension(master_size*node_size) :: local_scatter_requests
+     integer :: local_gather_requests_idx
+     integer :: global_gather_requests_idx
+     integer :: local_scatter_requests_idx
+
      integer :: idx
      integer :: ierror
 
      integer :: base 
      integer :: offset
      integer :: info
-     integer :: node_comm
-     integer :: node_rank, node_size
-     integer :: master_comm
-     integer :: master_rank, master_size
-     integer :: world_rank, world_size, world_comm
 
-     integer, dimension(node_size) :: local_to_world
-     integer, dimension(node_size) :: local_to_master
-     integer, dimension(master_size*node_size) :: world_to_local_master
-     integer, dimension(master_size*node_size) :: world_to_local
 
      integer :: master_id, node_id
      integer :: master_data_chunk_size
      integer :: gathered_master_data_chunk_size
 
-     integer :: print_master_from_id
-     integer :: print_node_from_id
-     integer :: print_master_to_id
-     integer :: print_node_to_id
-     integer :: print_world_from_id
-     integer :: print_world_to_id
+     !integer :: print_master_from_id
+     !integer :: print_node_from_id
+     !integer :: print_master_to_id
+     !integer :: print_node_to_id
+     !integer :: print_world_from_id
+     !integer :: print_world_to_id
 
-     print_master_from_id = 0
-     print_node_from_id = 1
+     !print_master_from_id = 0
+     !print_node_from_id = 1
 
-     print_master_to_id = 1
-     print_node_to_id = 1
+     !print_master_to_id = 1
+     !print_node_to_id = 1
 
-     print_world_from_id = 1
-     print_world_to_id = 65
-   
+     !print_world_from_id = 1
+     !print_world_to_id = 65
 
-     !allocate( gather_buff(node_size*(master_size*node_size*10000) ) )
+
+
+
+     master_data_chunk_size=node_size*parallel_buff_size ! data to transmit to one master process
+     gathered_master_data_chunk_size= master_data_chunk_size*node_size ! data gathered on one master from all local processes
+
+
+     local_gather_requests_idx=0
+     global_gather_requests_idx=0
+     local_scatter_requests_idx=0
+     
+
+     do i = 1, r%to(world_rank)%nn
+        to_here(r%from(world_rank)%k(i), &
+                r%from(world_rank)%l(i), &
+                r%from(world_rank)%m(i)) &
+           = from_here(r%to(world_rank)%k(i), &
+                       r%to(world_rank)%l(i), &
+                       r%to(world_rank)%m(i), &
+                       r%to(world_rank)%n(i), &
+                       r%to(world_rank)%o(i))
+     end do
+     do idp = 1, world_size - 1
+        ipto = mod(world_rank + idp, world_size)
+        ipfrom = mod(world_rank + world_size - idp, world_size)
+        ! send to idpth next processor
+        if (r%to(ipto)%nn > 0) then
+           call get_master_and_node_id( ipto, master_id, node_id)
+           base = master_id*node_size*parallel_buff_size+node_id*parallel_buff_size
+           offset = base+1+r%to(ipto)%nn
+           do i = 1, r%to(ipto)%nn
+              send_buff(base+i) = from_here(r%to(ipto)%k(i), &
+                                            r%to(ipto)%l(i), &
+                                            r%to(ipto)%m(i), &
+                                            r%to(ipto)%n(i), &
+                                            r%to(ipto)%o(i))
+           end do
+           !if ( world_rank == print_world_from_id .and. ipto == print_world_to_id ) then
+           !  write(*,*) "master: ", master_id, "node_id", node_id
+           !  write(*,*) "send: ", world_rank, " ", node_rank, " " , send_buff(base+1:base+2)
+           !endif
+        end if
+        
+     end do
+
+     if ( world_rank == 0 ) write(*,*) "send data prepared"
+     do i = 0, master_size - 1
+       local_gather_requests_idx = local_gather_requests_idx + 1
+       call mpi_igather( send_buff(i*master_data_chunk_size+1:(i+1)*master_data_chunk_size), &
+                        master_data_chunk_size, &
+                        mpicmplx, &
+                        gather_buff(i*gathered_master_data_chunk_size+1:(i+1)*gathered_master_data_chunk_size), & 
+                        master_data_chunk_size, &
+                        mpicmplx, &
+                        0, &
+                        node_comm, &
+                        local_gather_requests(local_gather_requests_idx), &
+                        ierror ) 
+     enddo
+     if(local_gather_requests_idx > 0 ) call waitall( local_gather_requests_idx, local_gather_requests )
+     if (world_rank ==0) write(*,*) "gathered all data to node masters"
+
+     !if ( world_rank == 0 ) then 
+     !write(*,*) "data local: ", gather_buff(print_master_to_id*gathered_master_data_chunk_size+ &
+     !                           print_node_from_id*master_data_chunk_size+ &
+     !                           print_node_to_id*parallel_buff_size+1 &
+     !                           :&
+     !                           print_master_to_id*gathered_master_data_chunk_size+&
+     !                           print_node_from_id*master_data_chunk_size+&
+     !                           print_node_to_id*parallel_buff_size+2)
+     !endif
+
      if ( node_rank == 0 ) then
-       write(*,*) "allocating ", node_size*(master_size*node_size*10000)
-       allocate( gather_buff(node_size*(master_size*node_size*10000) ) )
-       allocate( gather_gather_buff(master_size*(node_size*node_size*10000) ) )
+       do i = 0, master_size - 1
+         global_gather_requests_idx = global_gather_requests_idx + 1
+         call mpi_igather( gather_buff(i*gathered_master_data_chunk_size+1:(i+1)*gathered_master_data_chunk_size), &
+                          gathered_master_data_chunk_size, &
+                          mpicmplx, &
+                          gather_gather_buff, &
+                          gathered_master_data_chunk_size, &
+                          mpicmplx, &
+                          i, &
+                          master_comm, &
+                          global_gather_requests(global_gather_requests_idx), &
+                          ierror )
+       enddo
+
      endif
+
+     if(global_gather_requests_idx > 0 ) call waitall( global_gather_requests_idx, global_gather_requests )
+     !if ( world_rank == 64 ) then 
+     !write(*,*) "data target master: ", gather_gather_buff(print_master_from_id*gathered_master_data_chunk_size+&
+     !                                   print_node_from_id*master_data_chunk_size+&
+     !                                   print_node_to_id*parallel_buff_size+1 &
+     !                                   :&
+     !                                   print_master_from_id*gathered_master_data_chunk_size+&
+     !                                   print_node_from_id*master_data_chunk_size+&
+     !                                   print_node_to_id*parallel_buff_size+2)
+     !endif
+
+     if (world_rank ==0) write(*,*) "copied all data to masters"
+     do i = 0, master_size - 1
+       do j = 0, node_size - 1
+         !local_scatter_requests_idx = local_scatter_requests_idx + 1
+         call mpi_scatter( gather_gather_buff(i*gathered_master_data_chunk_size+j*master_data_chunk_size+1 &
+                          :&
+                          i*gathered_master_data_chunk_size+(j+1)*master_data_chunk_size), &
+                          parallel_buff_size, &
+                          mpicmplx, &
+                          receive_buff(i*master_data_chunk_size+j*parallel_buff_size+1 &
+                          :i*master_data_chunk_size+(j+1)*parallel_buff_size), &
+                          parallel_buff_size, &
+                          mpicmplx, &
+                          0, &
+                          node_comm, &
+                          ierror )
+         !call mpi_iscatter( gather_gather_buff(i*gathered_master_data_chunk_size+j*master_data_chunk_size+1 &
+         !                 :&
+         !                 i*gathered_master_data_chunk_size+(j+1)*master_data_chunk_size), &
+         !                 parallel_buff_size, &
+         !                 mpicmplx, &
+         !                 receive_buff(i*master_data_chunk_size+j*parallel_buff_size+1 &
+         !                 :i*master_data_chunk_size+(j+1)*parallel_buff_size), &
+         !                 parallel_buff_size, &
+         !                 mpicmplx, &
+         !                 0, &
+         !                 node_comm, &
+         !                 local_scatter_requests(local_scatter_requests_idx), &
+         !                 ierror )
+
+       enddo
+     enddo
+     if(local_scatter_requests_idx > 0 ) call waitall( local_scatter_requests_idx, local_scatter_requests )
+     if (world_rank ==0) write(*,*) "copied all data to local processes"
+     !if ( world_rank == 65 ) then 
+     !  write(*,*) "data target 65: ", receive_buff(print_master_from_id*master_data_chunk_size+ &
+     !                                              print_node_from_id*parallel_buff_size+1:&
+     !                                              print_master_from_id*master_data_chunk_size+ &
+     !                                              print_node_from_id*parallel_buff_size+2)
+     !endif
+
+     do idp = 1, world_size - 1
+        ipfrom = mod(world_rank + world_size - idp, world_size)
+        if (r%from(ipfrom)%nn > 0) then
+           call get_master_and_node_id( ipfrom, master_id, node_id)
+           base = master_id*node_size*parallel_buff_size+node_id*parallel_buff_size
+           do i = 1, r%from(ipfrom)%nn
+              to_here(r%from(ipfrom)%k(i), &
+                      r%from(ipfrom)%l(i), &
+                      r%from(ipfrom)%m(i)) &
+                 = receive_buff(base+i)
+
+           end do
+        end if
+     end do
+     if (world_rank ==0) write(*,*) "mapped into local arrays"
+
+
+  
+
+  end subroutine parallel_scatter_complex_commsplit
+
+  subroutine parallel_gather_complex_commsplit( r, from_here, to_here)
+     use mpi
+     use mp, only: waitall, mpicmplx,barrier
+     type(redist_type), intent(in out) :: r
+
+
+     complex, dimension(r%from_low(1):, &
+                        r%from_low(2):, &
+                        r%from_low(3):), intent(in) :: from_here
+     complex, dimension(r%to_low(1):, &
+                        r%to_low(2):, &
+                        r%to_low(3):, &
+                        r%to_low(4):, &
+                        r%to_low(5):), intent(in out) :: to_here
+
+
+     integer :: i,j, idp, ipto, ipfrom, iadp
+
+
+
+     integer, dimension(master_size) :: local_gather_requests
+     integer, dimension(master_size) :: global_gather_requests
+     integer, dimension(master_size*node_size) :: local_scatter_requests
+     integer :: local_gather_requests_idx
+     integer :: global_gather_requests_idx
+     integer :: local_scatter_requests_idx
+
+     integer :: idx
+     integer :: ierror
+
+     integer :: base 
+     integer :: offset
+     integer :: info
+
+
+     integer :: master_id, node_id
+     integer :: master_data_chunk_size
+     integer :: gathered_master_data_chunk_size
+
+     !integer :: print_master_from_id
+     !integer :: print_node_from_id
+     !integer :: print_master_to_id
+     !integer :: print_node_to_id
+     !integer :: print_world_from_id
+     !integer :: print_world_to_id
+
+     !print_master_from_id = 0
+     !print_node_from_id = 1
+
+     !print_master_to_id = 1
+     !print_node_to_id = 1
+
+     !print_world_from_id = 1
+     !print_world_to_id = 65
+
+
+
+
+     master_data_chunk_size=node_size*parallel_buff_size ! data to transmit to one master process
+     gathered_master_data_chunk_size= master_data_chunk_size*node_size ! data gathered on one master from all local processes
+
+
+     local_gather_requests_idx=0
+     global_gather_requests_idx=0
+     local_scatter_requests_idx=0
+     
+
+     do i = 1, r%from(world_rank)%nn
+        to_here(r%to(world_rank)%k(i), &
+                r%to(world_rank)%l(i), &
+                r%to(world_rank)%m(i), &
+                r%to(world_rank)%n(i), &
+                r%to(world_rank)%o(i)) &
+            = from_here(r%from(world_rank)%k(i), &
+                        r%from(world_rank)%l(i), &
+                        r%from(world_rank)%m(i)) 
+
+     end do
+     do idp = 1, world_size - 1
+        ipto = mod(world_rank + idp, world_size)
+        ipfrom = mod(world_rank + world_size - idp, world_size)
+        ! send to idpth next processor
+        if (r%from(ipto)%nn > 0) then
+           call get_master_and_node_id( ipto, master_id, node_id)
+           base = master_id*node_size*parallel_buff_size+node_id*parallel_buff_size
+           offset = base+1+r%to(ipto)%nn
+           do i = 1, r%from(ipto)%nn
+              send_buff(base+i) = from_here(r%from(ipto)%k(i), &
+                                            r%from(ipto)%l(i), &
+                                            r%from(ipto)%m(i))
+           end do
+           !if ( world_rank == print_world_from_id .and. ipto == print_world_to_id ) then
+           !  write(*,*) "master: ", master_id, "node_id", node_id
+           !  write(*,*) "send: ", world_rank, " ", node_rank, " " , send_buff(base+1:base+2)
+           !endif
+        end if
+        
+     end do
+
+     if ( world_rank == 0 ) write(*,*) "send data prepared"
+     do i = 0, master_size - 1
+       local_gather_requests_idx = local_gather_requests_idx + 1
+       call mpi_igather( send_buff(i*master_data_chunk_size+1:(i+1)*master_data_chunk_size), &
+                        master_data_chunk_size, &
+                        mpicmplx, &
+                        gather_buff(i*gathered_master_data_chunk_size+1:(i+1)*gathered_master_data_chunk_size), & 
+                        master_data_chunk_size, &
+                        mpicmplx, &
+                        0, &
+                        node_comm, &
+                        local_gather_requests(local_gather_requests_idx), &
+                        ierror ) 
+     enddo
+     if(local_gather_requests_idx > 0 ) call waitall( local_gather_requests_idx, local_gather_requests )
+     if (world_rank ==0) write(*,*) "gathered all data to node masters"
+
+     !if ( world_rank == 0 ) then 
+     !write(*,*) "data local: ", gather_buff(print_master_to_id*gathered_master_data_chunk_size+ &
+     !                           print_node_from_id*master_data_chunk_size+ &
+     !                           print_node_to_id*parallel_buff_size+1 &
+     !                           :&
+     !                           print_master_to_id*gathered_master_data_chunk_size+&
+     !                           print_node_from_id*master_data_chunk_size+&
+     !                           print_node_to_id*parallel_buff_size+2)
+     !endif
+
+     if ( node_rank == 0 ) then
+       do i = 0, master_size - 1
+         global_gather_requests_idx = global_gather_requests_idx + 1
+         call mpi_igather( gather_buff(i*gathered_master_data_chunk_size+1:(i+1)*gathered_master_data_chunk_size), &
+                          gathered_master_data_chunk_size, &
+                          mpicmplx, &
+                          gather_gather_buff, &
+                          gathered_master_data_chunk_size, &
+                          mpicmplx, &
+                          i, &
+                          master_comm, &
+                          global_gather_requests(global_gather_requests_idx), &
+                          ierror )
+       enddo
+
+     endif
+
+     if(global_gather_requests_idx > 0 ) call waitall( global_gather_requests_idx, global_gather_requests )
+     !if ( world_rank == 64 ) then 
+     !write(*,*) "data target master: ", gather_gather_buff(print_master_from_id*gathered_master_data_chunk_size+&
+     !                                   print_node_from_id*master_data_chunk_size+&
+     !                                   print_node_to_id*parallel_buff_size+1 &
+     !                                   :&
+     !                                   print_master_from_id*gathered_master_data_chunk_size+&
+     !                                   print_node_from_id*master_data_chunk_size+&
+     !                                   print_node_to_id*parallel_buff_size+2)
+     !endif
+
+     if (world_rank ==0) write(*,*) "copied all data to masters"
+     do i = 0, master_size - 1
+       do j = 0, node_size - 1
+         !local_scatter_requests_idx = local_scatter_requests_idx + 1
+         call mpi_scatter( gather_gather_buff(i*gathered_master_data_chunk_size+j*master_data_chunk_size+1 &
+                          :&
+                          i*gathered_master_data_chunk_size+(j+1)*master_data_chunk_size), &
+                          parallel_buff_size, &
+                          mpicmplx, &
+                          receive_buff(i*master_data_chunk_size+j*parallel_buff_size+1 &
+                          :i*master_data_chunk_size+(j+1)*parallel_buff_size), &
+                          parallel_buff_size, &
+                          mpicmplx, &
+                          0, &
+                          node_comm, &
+                          ierror )
+         !call mpi_iscatter( gather_gather_buff(i*gathered_master_data_chunk_size+j*master_data_chunk_size+1 &
+         !                 :&
+         !                 i*gathered_master_data_chunk_size+(j+1)*master_data_chunk_size), &
+         !                 parallel_buff_size, &
+         !                 mpicmplx, &
+         !                 receive_buff(i*master_data_chunk_size+j*parallel_buff_size+1 &
+         !                 :i*master_data_chunk_size+(j+1)*parallel_buff_size), &
+         !                 parallel_buff_size, &
+         !                 mpicmplx, &
+         !                 0, &
+         !                 node_comm, &
+         !                 local_scatter_requests(local_scatter_requests_idx), &
+         !                 ierror )
+
+       enddo
+     enddo
+     if(local_scatter_requests_idx > 0 ) call waitall( local_scatter_requests_idx, local_scatter_requests )
+     if (world_rank ==0) write(*,*) "copied all data to local processes"
+     !if ( world_rank == 65 ) then 
+     !  write(*,*) "data target 65: ", receive_buff(print_master_from_id*master_data_chunk_size+ &
+     !                                              print_node_from_id*parallel_buff_size+1:&
+     !                                              print_master_from_id*master_data_chunk_size+ &
+     !                                              print_node_from_id*parallel_buff_size+2)
+     !endif
+
+     do idp = 1, world_size - 1
+        ipfrom = mod(world_rank + world_size - idp, world_size)
+        if (r%to(ipfrom)%nn > 0) then
+           call get_master_and_node_id( ipfrom, master_id, node_id)
+           base = master_id*node_size*parallel_buff_size+node_id*parallel_buff_size
+           do i = 1, r%to(ipfrom)%nn
+                  to_here(r%to(ipfrom)%k(i), &
+                          r%to(ipfrom)%l(i), &
+                          r%to(ipfrom)%m(i), &
+                          r%to(ipfrom)%n(i), &
+                          r%to(ipfrom)%o(i)) &
+                     = receive_buff(base+i)
+
+           end do
+        end if
+     end do
+     if (world_rank ==0) write(*,*) "mapped into local arrays"
+
+
+  
+
+  end subroutine parallel_gather_complex_commsplit
+
+
+
+
+
+
+
+
+  subroutine setup_commsplit
+     use mpi
+     use mp, only: iproc, nproc, barrier, mp_comm, mpicmplx
+
+     integer :: ierror, idx
+
+     integer :: master_id, node_id
+
+     world_comm = mp_comm
+     world_rank = iproc
+     world_size = nproc
+     if (world_rank == 0) write(*,*) "setting up commsplit"
+
+     !call mpi_comm_split_type(mp_comm, MPI_COMM_TYPE_SHARED, world_rank, MPI_INFO_NULL, node_comm, ierror)
+     !call mpi_comm_split_type(mp_comm, OMPI_COMM_TYPE_SOCKET, world_rank, MPI_INFO_NULL, node_comm, ierror)
+     call mpi_comm_split_type(mp_comm, OMPI_COMM_TYPE_NUMA, world_rank, MPI_INFO_NULL, node_comm, ierror)
+     call mpi_comm_size(node_comm, node_size, ierror)
+     call mpi_comm_rank(node_comm, node_rank, ierror)
+
+     call mpi_comm_split(mp_comm, node_rank, world_rank, master_comm, ierror)
+     call mpi_comm_size(master_comm, master_size, ierror)
+     call mpi_comm_rank(master_comm, master_rank, ierror)
+
+
+     
+     allocate( local_to_world ( node_size ) )
+     allocate(world_to_local_master(master_size*node_size)) 
+     allocate(world_to_local(master_size*node_size))
 
      ! TODO create look up table from world to node local rank
      local_to_world(node_rank+1) = world_rank
@@ -717,7 +1130,6 @@ contains
                         1, &
                         MPI_INTEGER, &
                         node_comm, ierror )
-
      call mpi_bcast( master_rank, &
                      1, &
                      MPI_INTEGER, &
@@ -746,251 +1158,57 @@ contains
                         1, &
                         MPI_INTEGER, &
                         world_comm, ierror )
+     call barrier
+     if ( world_rank == 0 ) then
+       write(*,*) "parallel_buff_size:", parallel_buff_size
+       do idx = 0, world_size-1
+        call get_master_and_node_id( idx, master_id, node_id)
+
+         write(*,*) "world_rank:", idx, &
+                    "local_master:", master_id, & 
+                    "node_rank:", node_id
+       enddo
+     endif
+     allocate( send_buff(master_size*node_size*parallel_buff_size ) ) 
+     allocate( receive_buff(master_size*node_size*parallel_buff_size ) ) 
+     !allocate( gather_buff(node_size*(master_size*node_size*parallel_buff_size) ) )
+     if ( node_rank == 0 ) then
+       write(*,*) "allocating ", node_size*(master_size*node_size*parallel_buff_size)
+       allocate( gather_buff(node_size*(master_size*node_size*parallel_buff_size) ) )
+       allocate( gather_gather_buff(master_size*(node_size*node_size*parallel_buff_size) ) )
+     endif
 
 
-      call barrier
+  end subroutine setup_commsplit
 
-    if ( world_rank == 0 ) then
-      do idp = 0, world_size-1
-       call get_master_and_node_id( master_size, node_size, world_to_local, &
-                                    world_to_local_master, idp, master_id, node_id)
-
-        write(*,*) "world_rank:", idp, &
-                   "local_master:", master_id, & 
-                   "node_rank:", node_id
-      enddo
-    endif
-    ! if ( world_rank == 0 ) then
-    !   do i = 0, world_size-1
-    !     write(*,*) "world_rank: ", i, " local_master ", world_to_local_master(i+1)
-    !   enddo
-    ! endif
-
-    ! TODO create look up table
-
-     
-
-     ! redistribute from local processor to local processor
-     do i = 1, r%to(iproc)%nn
-        to_here(r%from(iproc)%k(i), &
-                r%from(iproc)%l(i), &
-                r%from(iproc)%m(i)) &
-           = from_here(r%to(iproc)%k(i), &
-                       r%to(iproc)%l(i), &
-                       r%to(iproc)%m(i), &
-                       r%to(iproc)%n(i), &
-                       r%to(iproc)%o(i))
-     end do
-      !if ( iproc == 0 ) write(*,*) "running redistribute loop"
-      ! redistribute to idpth next processor from idpth preceding processor
-      ! or redistribute from idpth preceding processor to idpth next processor
-      ! to avoid deadlocks
-
-      call barrier
-      do idp = 1, world_size - 1
-         ipto = mod(iproc + idp, world_size)
-         ipfrom = mod(iproc + world_size - idp, world_size)
-         iadp = min(idp, world_size - idp)
-         ! send to idpth next processor
-         if (r%to(ipto)%nn > 0) then
-            call get_master_and_node_id( master_size, node_size, world_to_local, &
-                                         world_to_local_master, ipto, master_id, node_id)
-            base = master_id*node_size*10000+node_id*10000
-            offset = base+1+r%to(ipto)%nn
-            !if ( base .gt. size(send_buff) .or. base+1 < 1) then
-            !  write(*,*) "master_id ", master_id, " node_id", node_id
-            !endif
-            do i = 1, r%to(ipto)%nn
-               send_buff(base+i) = from_here(r%to(ipto)%k(i), &
-                                             r%to(ipto)%l(i), &
-                                             r%to(ipto)%m(i), &
-                                             r%to(ipto)%n(i), &
-                                             r%to(ipto)%o(i))
-            end do
-            if ( world_rank == print_world_from_id .and. ipto == print_world_to_id ) then
-              write(*,*) "master: ", master_id, "node_id", node_id
-              write(*,*) "send: ", world_rank, " ", node_rank, " " , send_buff(base+1:base+2)
-            endif
-         end if
-         
-      end do
-
-
-      call barrier
-      if ( world_rank == 0 ) then
-        write(*,*) "send data prepared"
-      endif
-      
-      master_data_chunk_size=node_size*10000 ! data to transmit to one master process
-      gathered_master_data_chunk_size= master_data_chunk_size*node_size ! data gathered on one master from all local processes
-      ! multiple gathers
-      do i = 0, master_size - 1
-        call mpi_gather( send_buff(i*master_data_chunk_size+1:(i+1)*master_data_chunk_size), &
-                         master_data_chunk_size, &
-                         mpicmplx, &
-                         gather_buff(i*gathered_master_data_chunk_size+1:(i+1)*gathered_master_data_chunk_size), & 
-                         master_data_chunk_size, &
-                         mpicmplx, &
-                         0, &
-                         node_comm, &
-                         ierror ) 
-
-      enddo
-
-      call barrier
-      if (world_rank ==0) write(*,*) "gathered all data to node masters"
-
-      if ( world_rank == 0 ) then 
-      write(*,*) "data local: ", gather_buff(print_master_to_id*gathered_master_data_chunk_size+ &
-                                 print_node_from_id*master_data_chunk_size+ &
-                                 print_node_to_id*10000+1 &
-                                 :&
-                                 print_master_to_id*gathered_master_data_chunk_size+&
-                                 print_node_from_id*master_data_chunk_size+&
-                                 print_node_to_id*10000+2)
-      endif
-
-      if ( node_rank == 0 ) then
-        ! TODO complete the target buffer code
-        do i = 0, master_size - 1
-          call mpi_gather( gather_buff(i*gathered_master_data_chunk_size+1:(i+1)*gathered_master_data_chunk_size), &
-                           gathered_master_data_chunk_size, &
-                           mpicmplx, &
-                           gather_gather_buff, &
-                           gathered_master_data_chunk_size, &
-                           mpicmplx, &
-                           i, &
-                           master_comm, &
-                           ierror )
-        enddo
-
-      endif
-      if ( world_rank == 64 ) then 
-      write(*,*) "data target master: ", gather_gather_buff(print_master_from_id*gathered_master_data_chunk_size+&
-                                         print_node_from_id*master_data_chunk_size+&
-                                         print_node_to_id*10000+1 &
-                                         :&
-                                         print_master_from_id*gathered_master_data_chunk_size+&
-                                         print_node_from_id*master_data_chunk_size+&
-                                         print_node_to_id*10000+2)
-      endif
-
-      call barrier
-      if (world_rank ==0) write(*,*) "copied all data to masters"
-
-      do i = 0, master_size - 1
-        do j = 0, node_size - 1
-          call mpi_scatter( gather_gather_buff(i*gathered_master_data_chunk_size+j*master_data_chunk_size+1 &
-                           :&
-                           i*gathered_master_data_chunk_size+(j+1)*master_data_chunk_size), &
-                           10000, &
-                           mpicmplx, &
-                           receive_buff(i*master_data_chunk_size+j*10000+1:i*master_data_chunk_size+(j+1)*10000), &
-                           10000, &
-                           mpicmplx, &
-                           0, &
-                           node_comm, &
-                           ierror )
-        enddo
-      enddo
-      call barrier
-      if (world_rank ==0) write(*,*) "copied all data to local processes"
-      if ( world_rank == 65 ) then 
-        write(*,*) "data target 65: ", receive_buff(print_master_from_id*master_data_chunk_size+print_node_from_id*10000+1:&
-                                                    print_master_from_id*master_data_chunk_size+print_node_from_id*10000+2)
-      endif
-
-      do idp = 1, world_size - 1
-         ipfrom = mod(iproc + world_size - idp, world_size)
-         if (r%from(ipfrom)%nn > 0) then
-            call get_master_and_node_id( master_size, node_size, world_to_local, &
-                                         world_to_local_master, ipfrom, master_id, node_id)
-            base = master_id*node_size*10000+node_id*10000
-            do i = 1, r%from(ipfrom)%nn
-               to_here(r%from(ipfrom)%k(i), &
-                       r%from(ipfrom)%l(i), &
-                       r%from(ipfrom)%m(i)) &
-                  = receive_buff(base+i)
-
-            end do
-         end if
-      end do
-      call barrier
-      if (world_rank ==0) write(*,*) "mapped into local arrays"
-
-      !! TODO scatter to all node members
-      !do i = 0, node_size - 1
-      !  call mpi_scatter( gather_gather_buff,
-      !enddo
-     
-      !do i = 0, master_size - 1
-
-      !
-      !if ( world_rank == 0 ) then
-      !  master_id = 0
-      !  node_id = 0
-      !  base = 1*size(send_buff)+master_id*(node_size*10000)+node_id*(10000)
-      !  write(*,*) "recv: ", world_rank, " ", node_rank, " ", gather_buff(base+1:base+2)
-      !endif
-
-      !call mpi_gather( gather_buff(master_rank*(master_size*node_size*10000)+1:(master_rank+1)*(master_size*node_size*10000), (master_size*node_size*10000), mpicmplx, gather_buff, size(send_buff), mpicmplx, 0, node_comm, ierror) 
-
-      !call barrier
-
-      !call exit(1)
-
-
-  
-
-  end subroutine parallel_scatter_complex_commsplit_impl
-
-
-  subroutine parallel_scatter_complex_commsplit(r, from_here, to_here)
+  subroutine finish_commsplit
      use mpi
-     use mp, only: iproc, nproc, send, receive, waitall, waitany, barrier, mp_comm, mpicmplx, &
-                   comm_send_complex_array, comm_receive_complex_array
-     type(redist_type), intent(in out) :: r
-
-     complex, dimension(r%to_low(1):, &
-                        r%to_low(2):, &
-                        r%to_low(3):, &
-                        r%to_low(4):, &
-                        r%to_low(5):), intent(in) :: from_here
-
-     complex, dimension(r%from_low(1):, &
-                        r%from_low(2):, &
-                        r%from_low(3):), intent(in out) :: to_here
 
      integer :: ierror
-     integer :: world_rank, world_size, world_comm 
-     integer :: node_comm
-     integer :: node_rank, node_size
-     integer :: master_comm
-     integer :: master_rank, master_size
+     if (world_rank == 0) write(*,*) "finishing commsplit"
+     deallocate( send_buff )
+     deallocate( receive_buff )
+     if ( node_rank == 0 ) then
+       write(*,*) "deallocating ", node_size*(master_size*node_size*parallel_buff_size)
+       deallocate( gather_buff )
+       deallocate( gather_gather_buff )
+     endif
+     deallocate(local_to_world)
+     deallocate(world_to_local_master)
+     deallocate(world_to_local)
+
+     call mpi_comm_free(master_comm,ierror)
+     call mpi_comm_free(node_comm,ierror)
 
 
-     world_comm = mp_comm
-     world_rank = iproc
-     world_size = nproc
+  end subroutine finish_commsplit
 
-     call mpi_comm_split_type(mp_comm, OMPI_COMM_TYPE_SOCKET, world_rank, MPI_INFO_NULL, node_comm, ierror)
-     call mpi_comm_size(node_comm, node_size, ierror)
-     call mpi_comm_rank(node_comm, node_rank, ierror)
-
-     call mpi_comm_split(mp_comm, node_rank, world_rank, master_comm, ierror)
-     call mpi_comm_size(master_comm, master_size, ierror)
-     call mpi_comm_rank(master_comm, master_rank, ierror)
-
-     call parallel_scatter_complex_commsplit_impl( r, from_here, to_here, world_rank, world_size, world_comm, &
-                                                   master_rank, master_size, master_comm, node_rank, node_size, node_comm )
- 
-  end subroutine parallel_scatter_complex_commsplit
 
 
    subroutine parallel_scatter_complex(r, from_here, to_here)
 
       use mpi
-      use mp, only: iproc, nproc, send, receive, waitall, waitany, barrier, mp_comm, mpicmplx
+      use mp, only: iproc, nproc, send, receive, waitall, mp_comm, mpicmplx
       type(redist_type), intent(in out) :: r
 
       complex, dimension(r%to_low(1):, &
@@ -1005,8 +1223,8 @@ contains
 
       integer :: i, idp, ipto, ipfrom, iadp
 
-      complex, dimension(nproc*10000) :: send_buff
-      complex, dimension(nproc*10000) :: receive_buff
+      complex, dimension(:), allocatable :: send_buff_nb
+      complex, dimension(:), allocatable :: receive_buff_nb
       integer, dimension(nproc) :: send_requests
       integer, dimension(nproc) :: receive_requests
       integer :: send_request_idx 
@@ -1014,16 +1232,17 @@ contains
       integer, dimension(MPI_STATUS_SIZE) :: statuses
       integer :: idx
       integer :: ierror
-
+      integer :: buffer_size
 
       integer :: base 
       integer :: offset
+      ! TODO Why buff_size + 1
+      buffer_size = parallel_buff_size + 1
 
+      allocate( send_buff_nb (nproc * buffer_size))
+      allocate( receive_buff_nb (nproc * buffer_size))
       ! redistribute from local processor to local processor
 
-!      if (iproc == 0) open(unit=70, file = "ipfrom_elements.txt")
-
-!      if (iproc == 0) open(unit=69, file = "ipto_elements.txt")
       do i = 1, r%to(iproc)%nn
          to_here(r%from(iproc)%k(i), &
                  r%from(iproc)%l(i), &
@@ -1033,95 +1252,182 @@ contains
                         r%to(iproc)%m(i), &
                         r%to(iproc)%n(i), &
                         r%to(iproc)%o(i))
-!                  if (iproc == 0) write(70,*) "ipfrom: ", iproc," i: ", i," k: ", r%from(iproc)%k(i)," l: ", &
-!                                               r%from(iproc)%l(i), " m: ",r%from(iproc)%m(i)
-!                  if (iproc == 0) write(69,*) "ipto: ", iproc," i: ", i," k: ", r%to(iproc)%k(i)," l: ", r%to(iproc)%l(i), &
-!                                              " m: ",r%to(iproc)%m(i)," n: ", r%to(iproc)%n(i)," o: ", r%to(iproc)%o(i)
-
-
-
       end do
 
       send_request_idx = 0
       receive_request_idx = 0
-      !if ( iproc == 0 ) write(*,*) "running redistribute loop"
-      ! redistribute to idpth next processor from idpth preceding processor
-      ! or redistribute from idpth preceding processor to idpth next processor
-      ! to avoid deadlocks
 
       do idp = 1, nproc - 1
          ipto = mod(iproc + idp, nproc)
          ipfrom = mod(iproc + nproc - idp, nproc)
-         iadp = min(idp, nproc - idp)
          ! send to idpth next processor
          if (r%to(ipto)%nn > 0) then
-            base = ipto*10000
+            base = ipto*buffer_size
             offset = base+1+r%to(ipto)%nn
             do i = 1, r%to(ipto)%nn
-               send_buff(base+i) = from_here(r%to(ipto)%k(i), &
+               send_buff_nb(base+i) = from_here(r%to(ipto)%k(i), &
                                              r%to(ipto)%l(i), &
                                              r%to(ipto)%m(i), &
                                              r%to(ipto)%n(i), &
                                              r%to(ipto)%o(i))
 
-!                  if (iproc == 0) write(69,*) "ipto: ", ipto," i: ", i," k: ", r%to(ipto)%k(i)," l: ", r%to(ipto)%l(i), &
-!                                              " m: ",r%to(ipto)%m(i)," n: ", r%to(ipto)%n(i)," o: ", r%to(ipto)%o(i)
             end do
 
             ! TODO send to node local rank 0
             
 
             send_request_idx = send_request_idx + 1
-            call send(send_buff(base+1:offset), ipto, iproc*nproc+ipto, send_requests(send_request_idx))
+            call send(send_buff_nb(base+1:offset), ipto, iproc*nproc+ipto, send_requests(send_request_idx))
          end if
 
          ! receive from idpth preceding processor
          if (r%from(ipfrom)%nn > 0) then
-            base = ipfrom*10000
+            base = ipfrom*buffer_size
             offset = base+1+r%from(ipfrom)%nn
 
             ! TODO go through multi block receives and write to corresponding buffer
 
             receive_request_idx = receive_request_idx + 1
-            call receive(receive_buff(base+1:offset), ipfrom, &
+            call receive(receive_buff_nb(base+1:offset), ipfrom, &
                  ipfrom*nproc+iproc, receive_requests(receive_request_idx) )
          end if
          
       end do
-!      if (iproc == 0) close(69)
-
-      !if ( iproc == 0 ) write(*,*) "calling waitall"
-      !if ( iproc == 0 ) write(*,*) "calling waitall send with ", send_request_idx
-      !if ( iproc == 0 ) write(*,*) "calling waitall receive with ", receive_request_idx
       if( send_request_idx > 0) call waitall( send_request_idx, send_requests ) 
       if( receive_request_idx > 0) call waitall( receive_request_idx, receive_requests ) 
 
-
-      !write(*,*) "status: ", statuses(MPI_SOURCE), " ", statuses(MPI_TAG), " ", statuses(MPI_ERROR)
-
       do idp = 1, nproc - 1
          ipfrom = mod(iproc + nproc - idp, nproc)
-         base = ipfrom*10000
+         base = ipfrom*buffer_size
          offset = base+1+r%from(ipfrom)%nn
          if (r%from(ipfrom)%nn > 0) then
             do i = 1, r%from(ipfrom)%nn
                to_here(r%from(ipfrom)%k(i), &
                        r%from(ipfrom)%l(i), &
                        r%from(ipfrom)%m(i)) &
-                  = receive_buff(base+i)
-!                  if (iproc == 0) write(70,*) "ipfrom: ", ipfrom," i: ", i," k: ", r%from(ipfrom)%k(i)," l: ", &
-!                                               r%from(ipfrom)%l(i), " m: ",r%from(ipfrom)%m(i)
+                  = receive_buff_nb(base+i)
 
             end do
 
-            !if( ipfrom*nproc+iproc == 120 ) write(*,*) "merge step tag: ", ipfrom*nproc+iproc, "buff: ", receive_buff(base+1)
          end if
       enddo
-!      if (iproc == 0) close(70)
 
-      call barrier
+      deallocate( send_buff_nb )
+      deallocate( receive_buff_nb )
       !if ( iproc == 0 ) write(*,*) "done scatter "
    end subroutine parallel_scatter_complex
+
+   subroutine parallel_gather_complex(r, from_here, to_here)
+
+      use mpi
+      use mp, only: iproc, nproc, send, receive, waitall, mp_comm, mpicmplx
+      type(redist_type), intent(in out) :: r
+
+      complex, dimension(r%from_low(1):, &
+                         r%from_low(2):, &
+                         r%from_low(3):), intent(in) :: from_here
+
+      complex, dimension(r%to_low(1):, &
+                         r%to_low(2):, &
+                         r%to_low(3):, &
+                         r%to_low(4):, &
+                         r%to_low(5):), intent(in out) :: to_here
+
+      integer :: i, idp, ipto, ipfrom, iadp
+
+      complex, dimension(:), allocatable :: send_buff_nb
+      complex, dimension(:), allocatable :: receive_buff_nb
+      integer, dimension(nproc) :: send_requests
+      integer, dimension(nproc) :: receive_requests
+      integer :: send_request_idx 
+      integer :: receive_request_idx 
+      integer, dimension(MPI_STATUS_SIZE) :: statuses
+      integer :: idx
+      integer :: ierror
+      integer :: buffer_size
+
+      integer :: base 
+      integer :: offset
+      ! TODO Why buff_size + 1
+      buffer_size = parallel_buff_size + 1
+
+      allocate( send_buff_nb (nproc * buffer_size))
+      allocate( receive_buff_nb (nproc * buffer_size))
+      ! redistribute from local processor to local processor
+
+      do i = 1, r%from(iproc)%nn
+         to_here(r%to(iproc)%k(i), &
+                 r%to(iproc)%l(i), &
+                 r%to(iproc)%m(i), &
+                 r%to(iproc)%n(i), &
+                 r%to(iproc)%o(i)) &
+            = from_here(r%from(iproc)%k(i), &
+                        r%from(iproc)%l(i), &
+                        r%from(iproc)%m(i))
+      end do
+
+      send_request_idx = 0
+      receive_request_idx = 0
+
+      do idp = 1, nproc - 1
+         ipto = mod(iproc + idp, nproc)
+         ipfrom = mod(iproc + nproc - idp, nproc)
+         ! send to idpth next processor
+         if (r%from(ipto)%nn > 0) then
+            base = ipto*buffer_size
+            offset = base+1+r%from(ipto)%nn
+            do i = 1, r%from(ipto)%nn
+               send_buff_nb(base+i) = from_here(r%from(ipto)%k(i), &
+                                                r%from(ipto)%l(i), &
+                                                r%from(ipto)%m(i))
+
+            end do
+
+            ! TODO send to node local rank 0
+            
+
+            send_request_idx = send_request_idx + 1
+            call send(send_buff_nb(base+1:offset), ipto, iproc*nproc+ipto, send_requests(send_request_idx))
+         end if
+
+         ! receive from idpth preceding processor
+         if (r%to(ipfrom)%nn > 0) then
+            base = ipfrom*buffer_size
+            offset = base+1+r%to(ipfrom)%nn
+
+
+            receive_request_idx = receive_request_idx + 1
+            call receive(receive_buff_nb(base+1:offset), ipfrom, &
+                 ipfrom*nproc+iproc, receive_requests(receive_request_idx) )
+         end if
+         
+      end do
+      if( send_request_idx > 0) call waitall( send_request_idx, send_requests ) 
+      if( receive_request_idx > 0) call waitall( receive_request_idx, receive_requests ) 
+
+      do idp = 1, nproc - 1
+         ipfrom = mod(iproc + nproc - idp, nproc)
+         base = ipfrom*buffer_size
+         offset = base+1+r%to(ipfrom)%nn
+         if (r%to(ipfrom)%nn > 0) then
+            do i = 1, r%to(ipfrom)%nn
+                  to_here(r%to(ipfrom)%k(i), &
+                          r%to(ipfrom)%l(i), &
+                          r%to(ipfrom)%m(i), &
+                          r%to(ipfrom)%n(i), &
+                          r%to(ipfrom)%o(i)) &
+                  = receive_buff_nb(base+i)
+
+            end do
+
+         end if
+      enddo
+
+      deallocate( send_buff_nb )
+      deallocate( receive_buff_nb )
+   end subroutine parallel_gather_complex
+
+
 
    subroutine report_map_property(r)
 

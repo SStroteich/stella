@@ -35,7 +35,9 @@ program stella
    real, dimension(2) :: time_init = 0.
    real, dimension(2) :: time_diagnostics = 0.
    real, dimension(2) :: time_total = 0.
-   real, dimension(3) :: time_gather_scatter = 0.
+   real, dimension(3) :: time_gather_scatter_b = 0.
+   real, dimension(3) :: time_gather_scatter_nb = 0.
+   real, dimension(3) :: time_gather_scatter_cs = 0.
 
    integer :: iky, ikx, ized, ivpa, imu
    character (len=128) :: file_name_gnew, file_name_gnew2, file_name_gvmu, file_name_gvmu2
@@ -53,9 +55,9 @@ program stella
 
    !> Advance stella until istep=nstep
    if (debug) write (*, *) 'stella::advance_stella'
-   istep = istep0 + 1
    call report_map_property(kxkyz2vmu)
    call setup_commsplit
+   istep = istep0 + 1
    do while ((code_time <= tend .AND. tend > 0) .OR. (istep <= nstep .AND. nstep > 0))
 
       if ( proc0 .and. mod(istep, 1) == 0 ) write (*,*) 'istep: ', istep
@@ -63,7 +65,7 @@ program stella
       if (proc0) then
           format_string = "(I3.3)"
           write (istep_string,format_string) istep
-          file_name_gnew='gnew_'//trim(istep_string)//'.txt'
+          file_name_gnew='gnew_b_'//trim(istep_string)//'.txt'
          open(unit=66, file = trim(file_name_gnew))
          do iky = 1, naky
             do ikx = 1, nakx
@@ -74,83 +76,151 @@ program stella
          enddo
          close(66)
       endif
+      call barrier
       if (proc0) then
-         time_gather_scatter(1) = timer_local()
-      endif
-
-      call parallel_scatter_complex_commsplit(kxkyz2vmu, gnew, gvmu)
-
-      if (proc0) then
-         time_gather_scatter(2) = timer_local()
-         time_gather_scatter(3) = time_gather_scatter(2) - time_gather_scatter(1)
-         write(*,*) "scatter commsplit: ", time_gather_scatter(3)
-      endif
-
-      if (proc0) then
-         time_gather_scatter(1) = timer_local()
-      endif
-
-      call parallel_scatter_complex(kxkyz2vmu, gnew, gvmu)
-
-      if (proc0) then
-         time_gather_scatter(2) = timer_local()
-         time_gather_scatter(3) = time_gather_scatter(2) - time_gather_scatter(1)
-         write(*,*) "scatter nonblocking: ", time_gather_scatter(3)
-      endif
-
-      if (proc0) then
-         time_gather_scatter(1) = timer_local()
+         time_gather_scatter_b(1) = timer_local()
       endif
 
       call scatter(kxkyz2vmu, gnew, gvmu)
 
       if (proc0) then
-         time_gather_scatter(2) = timer_local()
-         time_gather_scatter(3) = time_gather_scatter(2) - time_gather_scatter(1)
-         write(*,*) "scatter blocking: ", time_gather_scatter(3)
-      endif
-
-      if (proc0) then
-         time_gather_scatter(1) = timer_local()
-      endif
-
-      call parallel_gather_complex_commsplit(kxkyz2vmu, gvmu, gnew)
-
-      if (proc0) then
-         time_gather_scatter(2) = timer_local()
-         time_gather_scatter(3) = time_gather_scatter(2) - time_gather_scatter(1)
-         write(*,*) "gather commsplit: ", time_gather_scatter(3)
+         time_gather_scatter_b(2) = timer_local()
+         time_gather_scatter_b(3) = time_gather_scatter_b(3) + time_gather_scatter_b(2) - time_gather_scatter_b(1)
+         write(*,*) "scatter blocking: ", time_gather_scatter_b(2)- time_gather_scatter_b(1)
       endif
 
 
+      call barrier
       if (proc0) then
-         time_gather_scatter(1) = timer_local()
+         time_gather_scatter_b(1) = timer_local()
+      endif
+
+      call gather(kxkyz2vmu, gvmu, gnew)
+       if (proc0) then
+         time_gather_scatter_b(2) = timer_local()
+         time_gather_scatter_b(3) = time_gather_scatter_b(3) + time_gather_scatter_b(2) - time_gather_scatter_b(1)
+         write(*,*) "gather blocking: ", time_gather_scatter_b(2)- time_gather_scatter_b(1)
+      endif
+      call barrier
+
+
+      istep = istep + 1
+   end do
+
+
+   istep = istep0 + 1
+   do while ((code_time <= tend .AND. tend > 0) .OR. (istep <= nstep .AND. nstep > 0))
+
+      if ( proc0 .and. mod(istep, 1) == 0 ) write (*,*) 'istep: ', istep
+
+      if (proc0) then
+          format_string = "(I3.3)"
+          write (istep_string,format_string) istep
+          file_name_gnew='gnew_nb_'//trim(istep_string)//'.txt'
+         open(unit=66, file = trim(file_name_gnew))
+         do iky = 1, naky
+            do ikx = 1, nakx
+               do ized = -nzgrid, nzgrid 
+                  write(66,*) gnew(iky,ikx,ized,1,:)
+               enddo
+            enddo
+         enddo
+         close(66)
+      endif
+
+      call barrier
+
+      if (proc0) then
+         time_gather_scatter_nb(1) = timer_local()
+      endif
+
+      call parallel_scatter_complex(kxkyz2vmu, gnew, gvmu)
+
+      if (proc0) then
+         time_gather_scatter_nb(2) = timer_local()
+         time_gather_scatter_nb(3) = time_gather_scatter_nb(3) + time_gather_scatter_nb(2) - time_gather_scatter_nb(1)
+         write(*,*) "scatter nonblocking: ", time_gather_scatter_nb(2)-time_gather_scatter_nb(1)
+      endif
+
+
+      call barrier
+
+      if (proc0) then
+         time_gather_scatter_nb(1) = timer_local()
       endif
 
       call parallel_gather_complex(kxkyz2vmu, gvmu, gnew)
 
       if (proc0) then
-         time_gather_scatter(2) = timer_local()
-         write(*,*) "gather nonblocking: ", time_gather_scatter(2) - time_gather_scatter(1)
+         time_gather_scatter_nb(2) = timer_local()
+         time_gather_scatter_nb(3) = time_gather_scatter_nb(3) + time_gather_scatter_nb(2) - time_gather_scatter_nb(1)
+         write(*,*) "gather nonblocking: ", time_gather_scatter_nb(2) - time_gather_scatter_nb(1)
       endif
 
-      if (proc0) then
-         time_gather_scatter(1) = timer_local()
-      endif
 
-      call gather(kxkyz2vmu, gvmu, gnew)
-       if (proc0) then
-         time_gather_scatter(2) = timer_local()
-         time_gather_scatter(3) = time_gather_scatter(2) - time_gather_scatter(1)
-         write(*,*) "gather blocking: ", time_gather_scatter(3)
-      endif
+      call barrier
+    
 
       istep = istep + 1
    end do
 
+   istep = istep0 + 1
+   do while ((code_time <= tend .AND. tend > 0) .OR. (istep <= nstep .AND. nstep > 0))
+
+      if ( proc0 .and. mod(istep, 1) == 0 ) write (*,*) 'istep: ', istep
+
+      if (proc0) then
+          format_string = "(I3.3)"
+          write (istep_string,format_string) istep
+          file_name_gnew='gnew_cs_'//trim(istep_string)//'.txt'
+         open(unit=66, file = trim(file_name_gnew))
+         do iky = 1, naky
+            do ikx = 1, nakx
+               do ized = -nzgrid, nzgrid 
+                  write(66,*) gnew(iky,ikx,ized,1,:)
+               enddo
+            enddo
+         enddo
+         close(66)
+      endif
+      call barrier    
+      if (proc0) then
+         time_gather_scatter_cs(1) = timer_local()
+      endif
+
+      call parallel_scatter_complex_commsplit(kxkyz2vmu, gnew, gvmu)
+
+      if (proc0) then
+         time_gather_scatter_cs(2) = timer_local()
+         time_gather_scatter_cs(3) = time_gather_scatter_cs(3) + (time_gather_scatter_cs(2) - time_gather_scatter_cs(1))
+         write(*,*) "scatter commsplit: ", time_gather_scatter_cs(2)- time_gather_scatter_cs(1)
+      endif
+
+      call barrier
+      if (proc0) then
+         time_gather_scatter_cs(1) = timer_local()
+      endif
+
+      call parallel_gather_complex_commsplit(kxkyz2vmu, gvmu, gnew)
+
+      if (proc0) then
+         time_gather_scatter_cs(2) = timer_local()
+         time_gather_scatter_cs(3) = time_gather_scatter_cs(3) + (time_gather_scatter_cs(2) - time_gather_scatter_cs(1))
+         write(*,*) "gather commsplit: ", time_gather_scatter_cs(2) - time_gather_scatter_cs(1)
+      endif
+
+
+      call barrier
+
+      istep = istep + 1
+   end do
+
+
    !> Finish stella
    if (debug) write (*, *) 'stella::finish_stella'
    call finish_commsplit
+   if (proc0) write(*,*) " blocking: ", time_gather_scatter_b(3), " non blocking: ", time_gather_scatter_nb(3),&
+              " comm split: ", time_gather_scatter_cs(3)
    call finish_stella(last_call=.true.)
 
 contains

@@ -218,7 +218,7 @@ target_compile_definitions(libstella PRIVATE
 target_compile_options(libstella PRIVATE
   $<$<CONFIG:Debug>:
     $<$<Fortran_COMPILER_ID:GNU>:
-      -g -Wall -fimplicit-none -fbounds-check >
+      -g -Wall -fimplicit-none -fbounds-check -fcheck=all >
     $<$<Fortran_COMPILER_ID:Intel>:
       -g -implicitnone -warn all -nogen-interfaces -CB -traceback >
     $<$<Fortran_COMPILER_ID:Cray>:

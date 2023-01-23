@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(stella
   VERSION 0.3
-  LANGUAGES Fortran)
+  LANGUAGES Fortran C)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 

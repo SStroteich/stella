@@ -781,20 +781,8 @@ contains
      if(global_gather_requests_idx > 0 ) call waitall( global_gather_requests_idx, global_gather_requests )
      do i = 0, master_size - 1
        do j = 0, node_size - 1
-         !local_scatter_requests_idx = local_scatter_requests_idx + 1
-         call mpi_scatter( gather_gather_buff(i*gathered_master_data_chunk_size+j*master_data_chunk_size+1 &
-                          :&
-                          i*gathered_master_data_chunk_size+(j+1)*master_data_chunk_size), &
-                          parallel_buff_size, &
-                          mpicmplx, &
-                          receive_buff(i*master_data_chunk_size+j*parallel_buff_size+1 &
-                          :i*master_data_chunk_size+(j+1)*parallel_buff_size), &
-                          parallel_buff_size, &
-                          mpicmplx, &
-                          0, &
-                          node_comm, &
-                          ierror )
-         !call mpi_iscatter( gather_gather_buff(i*gathered_master_data_chunk_size+j*master_data_chunk_size+1 &
+         local_scatter_requests_idx = local_scatter_requests_idx + 1
+         !call mpi_scatter( gather_gather_buff(i*gathered_master_data_chunk_size+j*master_data_chunk_size+1 &
          !                 :&
          !                 i*gathered_master_data_chunk_size+(j+1)*master_data_chunk_size), &
          !                 parallel_buff_size, &
@@ -805,8 +793,20 @@ contains
          !                 mpicmplx, &
          !                 0, &
          !                 node_comm, &
-         !                 local_scatter_requests(local_scatter_requests_idx), &
          !                 ierror )
+         call mpi_iscatter( gather_gather_buff(i*gathered_master_data_chunk_size+j*master_data_chunk_size+1 &
+                          :&
+                          i*gathered_master_data_chunk_size+(j+1)*master_data_chunk_size), &
+                          parallel_buff_size, &
+                          mpicmplx, &
+                          receive_buff(i*master_data_chunk_size+j*parallel_buff_size+1 &
+                          :i*master_data_chunk_size+(j+1)*parallel_buff_size), &
+                          parallel_buff_size, &
+                          mpicmplx, &
+                          0, &
+                          node_comm, &
+                          local_scatter_requests(local_scatter_requests_idx), &
+                          ierror )
 
        enddo
      enddo
@@ -962,20 +962,8 @@ contains
      if(global_gather_requests_idx > 0 ) call waitall( global_gather_requests_idx, global_gather_requests )
      do i = 0, master_size - 1
        do j = 0, node_size - 1
-         !local_scatter_requests_idx = local_scatter_requests_idx + 1
-         call mpi_scatter( gather_gather_buff(i*gathered_master_data_chunk_size+j*master_data_chunk_size+1 &
-                          :&
-                          i*gathered_master_data_chunk_size+(j+1)*master_data_chunk_size), &
-                          parallel_buff_size, &
-                          mpicmplx, &
-                          receive_buff(i*master_data_chunk_size+j*parallel_buff_size+1 &
-                          :i*master_data_chunk_size+(j+1)*parallel_buff_size), &
-                          parallel_buff_size, &
-                          mpicmplx, &
-                          0, &
-                          node_comm, &
-                          ierror )
-         !call mpi_iscatter( gather_gather_buff(i*gathered_master_data_chunk_size+j*master_data_chunk_size+1 &
+         local_scatter_requests_idx = local_scatter_requests_idx + 1
+         !call mpi_scatter( gather_gather_buff(i*gathered_master_data_chunk_size+j*master_data_chunk_size+1 &
          !                 :&
          !                 i*gathered_master_data_chunk_size+(j+1)*master_data_chunk_size), &
          !                 parallel_buff_size, &
@@ -986,8 +974,20 @@ contains
          !                 mpicmplx, &
          !                 0, &
          !                 node_comm, &
-         !                 local_scatter_requests(local_scatter_requests_idx), &
          !                 ierror )
+         call mpi_iscatter( gather_gather_buff(i*gathered_master_data_chunk_size+j*master_data_chunk_size+1 &
+                          :&
+                          i*gathered_master_data_chunk_size+(j+1)*master_data_chunk_size), &
+                          parallel_buff_size, &
+                          mpicmplx, &
+                          receive_buff(i*master_data_chunk_size+j*parallel_buff_size+1 &
+                          :i*master_data_chunk_size+(j+1)*parallel_buff_size), &
+                          parallel_buff_size, &
+                          mpicmplx, &
+                          0, &
+                          node_comm, &
+                          local_scatter_requests(local_scatter_requests_idx), &
+                          ierror )
 
        enddo
      enddo
@@ -1035,9 +1035,9 @@ contains
      world_size = nproc
      if (world_rank == 0) write(*,*) "setting up commsplit"
 
-     call mpi_comm_split_type(mp_comm, MPI_COMM_TYPE_SHARED, world_rank, MPI_INFO_NULL, node_comm, ierror)
-     !call mpi_comm_split_type(mp_comm, OMPI_COMM_TYPE_SOCKET, world_rank, MPI_INFO_NULL, node_comm, ierror)
-     !call mpi_comm_split_type(mp_comm, OMPI_COMM_TYPE_NUMA, world_rank, MPI_INFO_NULL, node_comm, ierror)
+     call mpi_comm_split_type(world_comm, MPI_COMM_TYPE_SHARED, world_rank, MPI_INFO_NULL, node_comm, ierror)
+     !call mpi_comm_split_type(world_comm, OMPI_COMM_TYPE_SOCKET, world_rank, MPI_INFO_NULL, node_comm, ierror)
+     !call mpi_comm_split_type(world_comm, OMPI_COMM_TYPE_NUMA, world_rank, MPI_INFO_NULL, node_comm, ierror)
      call mpi_comm_size(node_comm, node_size, ierror)
      call mpi_comm_rank(node_comm, node_rank, ierror)
 

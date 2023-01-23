@@ -1053,7 +1053,7 @@ contains
 
      ! TODO create look up table from world to node local rank
      local_to_world(node_rank+1) = world_rank
-     call mpi_allgather( local_to_world(node_rank+1), &
+     call mpi_allgather( world_rank, &
                         1, &
                         MPI_INTEGER, &
                         local_to_world, &
@@ -1071,7 +1071,7 @@ contains
 
      ! TODO create look up table from world to node local rank
      world_to_local_master(world_rank+1) = master_rank
-     call mpi_allgather( world_to_local_master(world_rank+1), &
+     call mpi_allgather( master_rank, &
                         1, &
                         MPI_INTEGER, &
                         world_to_local_master, &
@@ -1081,7 +1081,7 @@ contains
 
      ! TODO create look up table from world to node local rank
      world_to_local(world_rank+1) = node_rank
-     call mpi_allgather( world_to_local(world_rank+1), &
+     call mpi_allgather( node_rank, &
                         1, &
                         MPI_INTEGER, &
                         world_to_local, &

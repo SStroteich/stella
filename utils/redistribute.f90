@@ -115,8 +115,7 @@ contains
    subroutine init_redist(r, char, to_low, to_high, to_list, &
                           from_low, from_high, from_list, ierr)
 
-      use mpi
-      use mp, only: iproc, nproc, proc0,mp_comm
+      use mp, only: iproc, nproc, proc0, mp_comm, max_allreduce
       type(redist_type), intent(inout) :: r
       character(1), intent(in) :: char
       type(index_list_type), dimension(0:nproc - 1), intent(in) :: to_list, from_list
@@ -212,8 +211,9 @@ contains
       end do
 
 
-      call mpi_allreduce &
-         (buff_size, parallel_buff_size, 1, MPI_INTEGER, MPI_MAX, mp_comm, ierr)
+      parallel_buff_size = buff_size
+      call max_allreduce(parallel_buff_size)
+
       if (iproc == 0) write (*, *) 'parallel_buff_size: ', parallel_buff_size
       select case (char)
       case ('c')

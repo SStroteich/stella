@@ -115,7 +115,8 @@ contains
    subroutine init_redist(r, char, to_low, to_high, to_list, &
                           from_low, from_high, from_list, ierr)
 
-      use mp, only: iproc, nproc, proc0
+      use mpi
+      use mp, only: iproc, nproc, proc0,mp_comm
       type(redist_type), intent(inout) :: r
       character(1), intent(in) :: char
       type(index_list_type), dimension(0:nproc - 1), intent(in) :: to_list, from_list
@@ -160,7 +161,6 @@ contains
             r%to(ip)%nn = 0
          end if
       end do
-      parallel_buff_size = buff_size
 
       do j = 1, size(from_low)
          r%from_low(j) = from_low(j)
@@ -211,6 +211,10 @@ contains
          end if
       end do
 
+
+      call mpi_allreduce &
+         (buff_size, parallel_buff_size, 1, MPI_INTEGER, MPI_MAX, mp_comm, ierr)
+      if (iproc == 0) write (*, *) 'parallel_buff_size: ', parallel_buff_size
       select case (char)
       case ('c')
          if (buff_size > 0) allocate (r%complex_buff(buff_size))
@@ -653,7 +657,7 @@ contains
 
   subroutine parallel_scatter_complex_commsplit( r, from_here, to_here)
      use mpi
-     use mp, only: waitall, mpicmplx,barrier
+     use mp, only: waitall, mpicmplx
      type(redist_type), intent(in out) :: r
 
      complex, dimension(r%to_low(1):, &
@@ -781,6 +785,7 @@ contains
      if(global_gather_requests_idx > 0 ) call waitall( global_gather_requests_idx, global_gather_requests )
      do i = 0, master_size - 1
        do j = 0, node_size - 1
+
          local_scatter_requests_idx = local_scatter_requests_idx + 1
          !call mpi_scatter( gather_gather_buff(i*gathered_master_data_chunk_size+j*master_data_chunk_size+1 &
          !                 :&
@@ -833,7 +838,7 @@ contains
 
   subroutine parallel_gather_complex_commsplit( r, from_here, to_here)
      use mpi
-     use mp, only: waitall, mpicmplx,barrier
+     use mp, only: waitall, mpicmplx
      type(redist_type), intent(in out) :: r
 
 
@@ -1041,7 +1046,7 @@ contains
      call mpi_comm_size(node_comm, node_size, ierror)
      call mpi_comm_rank(node_comm, node_rank, ierror)
 
-     call mpi_comm_split(mp_comm, node_rank, world_rank, master_comm, ierror)
+     call mpi_comm_split(world_comm, node_rank, world_rank, master_comm, ierror)
      call mpi_comm_size(master_comm, master_size, ierror)
      call mpi_comm_rank(master_comm, master_rank, ierror)
 
@@ -1101,12 +1106,17 @@ contains
      endif
      allocate( send_buff(master_size*node_size*parallel_buff_size ) ) 
      allocate( receive_buff(master_size*node_size*parallel_buff_size ) ) 
+     if(world_rank == 0)   write(*,*) "size send_buff", size(send_buff)
+     if(world_rank == 0)   write(*,*) "size receive_buff", size(receive_buff)
      !allocate( gather_buff(node_size*(master_size*node_size*parallel_buff_size) ) )
      if ( node_rank == 0 ) then
        write(*,*) "allocating ", node_size*(master_size*node_size*parallel_buff_size)
        allocate( gather_buff(node_size*(master_size*node_size*parallel_buff_size) ) )
        allocate( gather_gather_buff(master_size*(node_size*node_size*parallel_buff_size) ) )
+       if(world_rank == 0)   write(*,*) "size gather_buff", size(gather_buff)
+       if(world_rank == 0)   write(*,*) "size gather_gather_buff", size(gather_gather_buff)
      endif
+     
 
 
   end subroutine setup_commsplit
@@ -1278,7 +1288,7 @@ contains
       integer :: base 
       integer :: offset
       ! TODO Why buff_size + 1
-      buffer_size = parallel_buff_size + 1
+      buffer_size = parallel_buff_size + 1 
 
       allocate( send_buff_nb (nproc * buffer_size))
       allocate( receive_buff_nb (nproc * buffer_size))

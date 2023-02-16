@@ -13,6 +13,7 @@ program stella
    use dist_fn_arrays, only: gnew, gvmu
    use file_utils, only: error_unit, flush_output_file
    use git_version, only: get_git_version, get_git_date
+   use convergence, only: convergence_switch, testing_convergence
 
    implicit none
 
@@ -25,6 +26,7 @@ program stella
    real, dimension(2) :: time_init = 0.
    real, dimension(2) :: time_diagnostics = 0.
    real, dimension(2) :: time_total = 0.
+   real, dimension(2) :: time_convergence = 0.
 
    call parse_command_line()
 
@@ -45,6 +47,11 @@ program stella
          call checktime(avail_cpu_time, stop_stella)
       end if
       if (stop_stella) exit
+      if (convergence_switch) then
+         call time_message(.false., time_convergence, ' convergence')
+         call testing_convergence(istep, stop_stella)
+         call time_message(.false., time_convergence, ' convergence')
+      end if
       call advance_stella(istep)
       call update_time
       if (nsave > 0 .and. mod(istep, nsave) == 0) then
@@ -613,6 +620,7 @@ contains
          write (*, '(A)') "############################################################"
          write (*, fmt=101) 'initialization:', time_init(1) / 60., 'min'
          write (*, fmt=101) 'diagnostics:', time_diagnostics(1) / 60., 'min'
+         write (*, fmt=101) 'convergence:', time_convergence(1) / 60., 'min'
          write (*, fmt=101) 'fields:', time_field_solve(1, 1) / 60., 'min'
          write (*, fmt=101) '(redistribute):', time_field_solve(1, 2) / 60., 'min'
          write (*, fmt=101) '(int_dv_g):', time_field_solve(1, 3) / 60., 'min'

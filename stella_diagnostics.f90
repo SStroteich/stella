@@ -91,6 +91,7 @@ contains
       use dist_fn, only: init_dist_fn
       use init_g, only: init_init_g
       use stella_io, only: init_stella_io, get_nout
+      use convergence, only: init_convergence, init_overflow
       use mp, only: broadcast, proc0
 
       implicit none
@@ -115,6 +116,7 @@ contains
       call init_species
       call init_init_g
       call init_dist_fn
+      call init_convergence
 
       !> Allocate the necessary arrays
       call allocate_arrays
@@ -1728,6 +1730,7 @@ contains
       use mp, only: proc0
       use redistribute, only: scatter
       use stella_io, only: finish_stella_io
+      use convergence, only: finish_convergence
       use stella_time, only: code_dt, code_time
       use stella_save, only: stella_save_for_restart
       use dist_redistribute, only: kxkyz2vmu
@@ -1747,6 +1750,7 @@ contains
          call stella_save_for_restart(gvmu, istep, code_time, code_dt, istatus, .true.)
       end if
       call finish_stella_io
+      call finish_convergence
       call deallocate_arrays
 
       nout = 1

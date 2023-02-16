@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(stella
   VERSION 0.3
-  LANGUAGES Fortran)
+  LANGUAGES Fortran C)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
@@ -35,6 +35,7 @@ option(STELLA_UPDATE_GIT_SUBMODULES "Check submodules are up-to-date during buil
 # Sources that don't need preprocessing
 set(STELLA_SOURCES_f90
   common_types.f90
+  convergence.f90
   define.inc
   dist_fn.f90
   dist_fn_arrays.f90

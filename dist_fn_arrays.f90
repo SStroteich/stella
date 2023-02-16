@@ -22,7 +22,7 @@ module dist_fn_arrays
    complex, dimension(:, :, :, :, :), target, allocatable :: g_symm
    ! (naky, nakx, -nzgrid:nzgrid, ntubes, -vmu-layout-)
 
-   complex, dimension(:, :, :, :, :), allocatable :: g0, g1, g2, g3
+   complex, dimension(:, :, :, :, :), allocatable :: g0, g1, g2, g3, g4
    ! (naky, nakx, -nzgrid:nzgrid, ntubes, -vmu-layout-)
 
    ! needed to implement time-delayed source when using Krook operator

@@ -19,7 +19,7 @@ module init_g
                          ginitopt_noise = 2, ginitopt_restart_many = 3, &
                          ginitopt_kpar = 4, ginitopt_nltest = 5, &
                          ginitopt_kxtest = 6, ginitopt_rh = 7, &
-                         ginitopt_remap = 8
+                         ginitopt_remap = 8, ginitopt_fourierblob = 9
 
    real :: width0, phiinit, imfac, refac, zf_init
    real :: den0, upar0, tpar0, tperp0
@@ -123,6 +123,8 @@ contains
          call ginit_rh
       case (ginitopt_remap)
          call ginit_remap
+      case (ginitopt_fourierblob)
+         call ginit_fourierblob
       case (ginitopt_restart_many)
          call ginit_restart_many
          call init_tstart(tstart, istep0, istatus)
@@ -149,7 +151,7 @@ contains
 
       implicit none
 
-      type(text_option), dimension(8), parameter :: ginitopts = &
+      type(text_option), dimension(9), parameter :: ginitopts = &
                                                     (/text_option('default', ginitopt_default), &
                                                       text_option('noise', ginitopt_noise), &
                                                       text_option('many', ginitopt_restart_many), &
@@ -157,7 +159,8 @@ contains
                                                       text_option('kxtest', ginitopt_kxtest), &
                                                       text_option('kpar', ginitopt_kpar), &
                                                       text_option('rh', ginitopt_rh), &
-                                                      text_option('remap', ginitopt_remap) &
+                                                      text_option('remap', ginitopt_remap), &
+                                                      text_option('fourierblob', ginitopt_fourierblob) &
                                                       /)
       character(20) :: ginit_option
       namelist /init_g_knobs/ ginit_option, width0, phiinit, chop_side, &
@@ -653,6 +656,69 @@ contains
       end do
 
    end subroutine ginit_remap
+
+   subroutine ginit_fourierblob
+
+      use constants, only: zi
+      use species, only: spec
+      use zgrid, only: nzgrid, zed
+      use extended_zgrid, only: periodic, phase_shift
+      use kt_grids, only: naky, nakx
+      use kt_grids, only: aky, akx
+      use kt_grids, only: reality, zonal_mode
+      use vpamu_grids, only: nvpa, nmu
+      use vpamu_grids, only: vpa
+      use vpamu_grids, only: maxwell_vpa, maxwell_mu, maxwell_fac
+      use dist_fn_arrays, only: gvmu
+      use stella_layouts, only: kxkyz_lo, iz_idx, ikx_idx, iky_idx, is_idx
+      use ran, only: ranf
+      use constants, only: pi
+
+      implicit none
+
+      complex, dimension(naky, nakx, -nzgrid:nzgrid) :: phi
+      logical :: right
+      integer :: ikxkyz
+      integer :: iz, iky, ikx, is, ia
+      real :: sigma_y, sigma_x, sigma_z
+      sigma_x = maxval(akx) / 4.
+      sigma_y = maxval(aky) / 4.
+      sigma_z = pi / 4.0
+      right = .not. left
+
+      do iz = -nzgrid, nzgrid
+         do iky = 1, naky
+            do ikx = 1, nakx
+            phi(iky, ikx, iz) = exp(-(aky(iky) / sigma_y)**2 / 2.0 - (akx(ikx) / sigma_x)**2 / 2.0 - ((zed(iz)) / sigma_z)**2 / 2.0) * cmplx(1.0, 0.0)
+            end do
+         end do
+      end do
+
+      if (chop_side) then
+         if (left) phi(:, :, :-1) = 0.0
+         if (right) phi(:, :, 1:) = 0.0
+      end if
+
+      if (reality) then
+         do ikx = nakx / 2 + 2, nakx
+            phi(1, ikx, :) = conjg(phi(1, nakx - ikx + 2, :))
+         end do
+      end if
+
+      ia = 1
+
+      gvmu = 0.
+      do ikxkyz = kxkyz_lo%llim_proc, kxkyz_lo%ulim_proc
+         iz = iz_idx(kxkyz_lo, ikxkyz)
+         ikx = ikx_idx(kxkyz_lo, ikxkyz)
+         iky = iky_idx(kxkyz_lo, ikxkyz)
+         is = is_idx(kxkyz_lo, ikxkyz)
+         gvmu(:, :, ikxkyz) = phiinit * phi(iky, ikx, iz) / abs(spec(is)%z) &
+                              * (den0 + 2.0 * zi * spread(vpa, 2, nmu) * upar0) &
+                              * spread(maxwell_mu(ia, iz, :, is), 1, nvpa) * spread(maxwell_vpa(:, is), 2, nmu) * maxwell_fac(is)
+      end do
+
+   end subroutine ginit_fourierblob
 
    subroutine ginit_restart_many
 

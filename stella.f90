@@ -8,7 +8,7 @@ program stella
    use stella_time, only: update_time, code_time, code_dt
    use dist_redistribute, only: kxkyz2vmu
    use time_advance, only: advance_stella
-   use stella_diagnostics, only: diagnose_stella, nsave
+   use stella_diagnostics, only: diagnose_stella, nsave, nwrite
    use stella_save, only: stella_save_for_restart
    use dist_fn_arrays, only: gnew, gvmu
    use file_utils, only: error_unit, flush_output_file
@@ -46,7 +46,7 @@ program stella
          call checkstop(stop_stella)
          call checktime(avail_cpu_time, stop_stella)
       end if
-      if (stop_stella) exit
+      if (stop_stella .and. mod(istep,nwrite)==1) exit
       if (convergence_switch) then
          call time_message(.false., time_convergence, ' convergence')
          call testing_convergence(istep, stop_stella)

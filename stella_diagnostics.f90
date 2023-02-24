@@ -6,7 +6,7 @@ module stella_diagnostics
    public :: init_stella_diagnostics, finish_stella_diagnostics
    public :: diagnose_stella, read_stella_diagnostics_knobs
    public :: write_radial_fluxes, write_radial_moments
-   public :: nsave
+   public :: nsave, nwrite
 
    private
 

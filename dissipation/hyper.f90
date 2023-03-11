@@ -5,6 +5,8 @@ module hyper
    public :: read_parameters_hyper
    public :: init_hyper
    public :: advance_hyper_dissipation
+   public :: D_hyper
+   public :: k2max
 
    private
 

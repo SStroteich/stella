@@ -3,7 +3,6 @@ module gyro_averages
    use common_types, only: coupled_alpha_type
 
    public :: aj0x, aj0v, aj1x, aj1v
-   public :: ai0x, ai0v, gamma0x, gamma0v
    public :: init_bessel, finish_bessel
    public :: gyro_average
    public :: gyro_average_j1
@@ -56,7 +55,7 @@ contains
       use kt_grids, only: naky, nakx
       use stella_layouts, only: kxkyz_lo, vmu_lo
       use stella_layouts, only: iky_idx, ikx_idx, iz_idx, is_idx, imu_idx
-      use spfunc, only: j0, j1, i0
+      use spfunc, only: j0, j1
 
       implicit none
 
@@ -76,14 +75,6 @@ contains
          allocate (aj1v(nmu, kxkyz_lo%llim_proc:kxkyz_lo%ulim_alloc))
          aj1v = 0.
       end if
-      if (.not. allocated(ai0v)) then
-         allocate (ai0v(nmu, kxkyz_lo%llim_proc:kxkyz_lo%ulim_alloc))
-         ai0v = 0.
-      end if
-      if (.not. allocated(gamma0v)) then
-         allocate (gamma0v(nmu, kxkyz_lo%llim_proc:kxkyz_lo%ulim_alloc))
-         gamma0v = 0.
-      end if
 
       if (debug) write (*, *) 'gyro_averages::init_bessel::calculate_aj0v_aj1v'
       ia = 1
@@ -95,8 +86,6 @@ contains
          do imu = 1, nmu
             arg = spec(is)%bess_fac * spec(is)%smz_psi0 * sqrt(vperp2(ia, iz, imu) * kperp2(iky, ikx, ia, iz)) / bmag(ia, iz)
             aj0v(imu, ikxkyz) = j0(arg)
-            ai0v(imu, ikxkyz) = i0(arg*arg)
-            gamma0v(imu, ikxkyz) = exp(-arg*arg)*i0(arg*arg)
             ! note that j1 returns and aj1 stores J_1(x)/x (NOT J_1(x)),
             aj1v(imu, ikxkyz) = j1(arg)
          end do
@@ -114,14 +103,6 @@ contains
             allocate (aj1x(naky, nakx, -nzgrid:nzgrid, vmu_lo%llim_proc:vmu_lo%ulim_alloc))
             aj1x = 0.
          end if
-         if (.not. allocated(ai0x)) then
-            allocate (ai0x(naky, nakx, -nzgrid:nzgrid, vmu_lo%llim_proc:vmu_lo%ulim_alloc))
-            ai0x = 0.
-         end if
-         if (.not. allocated(gamma0x)) then
-            allocate (gamma0x(naky, nakx, -nzgrid:nzgrid, vmu_lo%llim_proc:vmu_lo%ulim_alloc))
-            gamma0x = 0.
-         end if
 
          ia = 1
          do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
@@ -132,8 +113,6 @@ contains
                   do iky = 1, naky
                      arg = spec(is)%bess_fac * spec(is)%smz_psi0 * sqrt(vperp2(ia, iz, imu) * kperp2(iky, ikx, ia, iz)) / bmag(ia, iz)
                      aj0x(iky, ikx, iz, ivmu) = j0(arg)
-                     ai0x(iky, ikx, iz, ivmu) = i0(arg*arg)
-                     gamma0x(iky, ikx, iz, ivmu) = exp(-arg*arg)*i0(arg*arg)
                      ! note that j1 returns and aj1 stores J_1(x)/x (NOT J_1(x)),
                      aj1x(iky, ikx, iz, ivmu) = j1(arg)
                   end do

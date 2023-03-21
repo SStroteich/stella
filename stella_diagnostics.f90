@@ -556,7 +556,7 @@ contains
       use run_parameters, only: fphi
       use kt_grids, only: aky
       use kt_grids, only: naky, nakx
-      use gyro_averages, only: gyro_average, gamma0x
+      use gyro_averages, only: gyro_average, aj0x
       use volume_averages, only: mode_fac
       use stella_time, only: code_time, code_dt
       use stella_geometry, only: dVolume, bmag
@@ -591,11 +591,6 @@ contains
       drive_kxkyz = 0.
 
       ia = 1
-      if (flux_norm) then
-         flx_norm = 1./grho_norm
-      else
-         flx_norm = 1.
-      end if
       !TODO ensure real values
       !TODO check normalization
       allocate (entropy_part_kxkyz(naky, nakx, -nzgrid:nzgrid, ntubes, nspec))
@@ -625,15 +620,22 @@ contains
                end do
             end do
 
-            g0(:, :, :, :, ivmu) = g(:, :, :, :, ivmu) * CONJG(g(:, :, :, :, ivmu))&
-                                 * g1(:, :, :, :, ivmu) * exp(2 *(mu(imu)+vpa(iv)*vpa(iv)))
-            g2(:, :, :, :, ivmu) = spread(gamma0x(:, :, :, ivmu), 4, ntubes)&
-                                 * phi(:, :, :, :) * CONJG(phi(:, :, :, :))            
-         end do
+            g0(:, :, :, :, ivmu) = spec(is)%temp * exp(2 *(mu(imu)+vpa(iv)*vpa(iv)))&
+                                   * g(:, :, :, :, ivmu) * CONJG(g(:, :, :, :, ivmu)) * g1(:, :, :, :, ivmu)&
+                                   + spec(is)%z * spread(aj0x(:, :, :, ivmu),4,ntubes) * g1(:, :, :, :, ivmu)&
+                                   * exp((mu(imu)+vpa(iv)*vpa(iv))) * (phi(:, :, :, :) * CONJG(g(:, :, :, :, ivmu))&
+                                   + g(:, :, :, :, ivmu) * CONJG(phi(:, :, :, :)))&
+                                   + spec(is)%z * spec(is)%z / spec(is)%temp * spread(aj0x(:, :, :, ivmu),4,ntubes)&
+                                   * spread(aj0x(:, :, :, ivmu),4,ntubes) * g1(:, :, :, :, ivmu) * phi(:, :, :, :) * CONJG(phi(:, :, :, :))
 
+            !Instead of gamma0x use the discrete velocity space integral
+         end do
+ 
 ! Calculate free energy
          call integrate_vmu(g0, weights, entropy_part_kxkyz)
-         call integrate_vmu(g3, weights, field_part_kxkyz)
+         do is = 1, nspec
+            field_part_kxkyz(:,:,:,:,is) = spec(is)%z * spec(is)%z / spec(is)%temp  * phi(:, :, :, :) * CONJG(phi(:, :, :, :))
+         end do
          if (proc0) then
             energy_total = 0
             drive_term = 0
@@ -643,15 +645,8 @@ contains
                   do iz = -nzgrid, nzgrid
                      do ikx = 1, nakx
                         do iky = 1, naky
-                           if ( isnan(real(entropy_part_kxkyz(iky,ikx,iz,it,is))) .or. isnan(aimag(entropy_part_kxkyz(iky,ikx,iz,it,is)))) then
-                              write(*,*) "NaN in entropy part"
-                              write(*,*) "iky,ikx,iz,it,is", iky,ikx,iz,it,is
-                           end if
-                           if( isnan(real(field_part_kxkyz(iky,ikx,iz,it,is))) .or. isnan(aimag(field_part_kxkyz(iky,ikx,iz,it,is)))) then
-                              write(*,*) "NaN in field part"
-                           end if
-                           free_energy_kxkyz(iky,ikx,iz,it,is) = 2 * pi * bmag(ia,iz) * spec(is)%dens * spec(is)%temp * entropy_part_kxkyz(iky, ikx, iz, it, is) &
-                                                               + 1 * 1 * spec(is)%dens * spec(is)%z * spec(is)%z / spec(is)%temp * field_part_kxkyz(iky, ikx, iz, it, is)
+                           free_energy_kxkyz(iky,ikx,iz,it,is) = spec(is)%dens * 2 * pi * bmag(ia,iz) * entropy_part_kxkyz(iky, ikx, iz, it, is) &
+                                                               + spec(is)%dens * field_part_kxkyz(iky, ikx, iz, it, is)
                            energy_total(is) = energy_total(is) + free_energy_kxkyz(iky, ikx, iz, it, is) * aky(iky) * mode_fac(iky) * dVolume(ia, 1, iz)
                         end do
                      end do
@@ -678,8 +673,6 @@ contains
          !dissipation = dissipation_term(is)*CONJG(dissipation_term(is))
          !drive = drive_term(is)*CONJG(drive_term(is))
          write (energy_unit, '(4e16.8)') code_time, energy, dissipation, drive
-         !write(energy_unit,*) code_time, energy,dissipation ,drive
-
          call flush (energy_unit)
       end if
       !if(proc0) then

@@ -46,7 +46,7 @@ program stella
          call checkstop(stop_stella)
          call checktime(avail_cpu_time, stop_stella)
       end if
-      if (stop_stella .and. mod(istep,nwrite)==1) exit
+      if (stop_stella .and. mod(istep, nwrite) == 1) exit
       if (convergence_switch) then
          call time_message(.false., time_convergence, ' convergence')
          call testing_convergence(istep, stop_stella)

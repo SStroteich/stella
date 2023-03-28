@@ -3,6 +3,7 @@ module gyro_averages
    use common_types, only: coupled_alpha_type
 
    public :: aj0x, aj0v, aj1x, aj1v
+   public :: gamma0x
    public :: init_bessel, finish_bessel
    public :: gyro_average
    public :: gyro_average_j1
@@ -29,13 +30,13 @@ module gyro_averages
    end interface
 
    real, dimension(:, :, :, :), allocatable :: aj0x, aj1x
-   real, dimension(:, :, :, :), allocatable :: ai0x, gamma0x
    ! (naky, nakx, nalpha, -nzgrid:nzgrid, -vmu-layout-)
 
    real, dimension(:, :), allocatable :: aj0v, aj1v
-   real, dimension(:, :), allocatable :: ai0v, gamma0v
    ! (nmu, -kxkyz-layout-)
 
+   real, dimension(:, :, :, :), allocatable :: gamma0x
+   ! (naky, nakx, -nzgrid:nzgrid, is)
    type(coupled_alpha_type), dimension(:, :, :, :), allocatable :: j0_ffs, j0_B_maxwell_ffs
 
    logical :: bessinit = .false.
@@ -48,14 +49,14 @@ contains
 
       use dist_fn_arrays, only: kperp2
       use physics_flags, only: full_flux_surface
-      use species, only: spec
+      use species, only: spec, nspec
       use stella_geometry, only: bmag
       use zgrid, only: nzgrid
       use vpamu_grids, only: vperp2, nmu
       use kt_grids, only: naky, nakx
       use stella_layouts, only: kxkyz_lo, vmu_lo
       use stella_layouts, only: iky_idx, ikx_idx, iz_idx, is_idx, imu_idx
-      use spfunc, only: j0, j1
+      use spfunc, only: j0, j1, i0
 
       implicit none
 
@@ -75,7 +76,7 @@ contains
          allocate (aj1v(nmu, kxkyz_lo%llim_proc:kxkyz_lo%ulim_alloc))
          aj1v = 0.
       end if
-
+   
       if (debug) write (*, *) 'gyro_averages::init_bessel::calculate_aj0v_aj1v'
       ia = 1
       do ikxkyz = kxkyz_lo%llim_proc, kxkyz_lo%ulim_proc
@@ -120,6 +121,24 @@ contains
             end do
          end do
       end if
+      
+      if (.not. allocated(gamma0x)) then
+         allocate (gamma0x(naky, nakx, -nzgrid:nzgrid, is))
+         gamma0x = 0.
+      end if
+      ia = 1
+      do is = 1, nspec
+         do iz = -nzgrid, nzgrid
+            do ikx = 1, nakx
+               do iky = 1, naky
+                  arg = spec(is)%bess_fac * spec(is)%temp *  kperp2(iky, ikx, ia, iz)/(spec(is)%z * spec(is)%z * bmag(ia, iz))
+                  gamma0x(iky, ikx, iz, is) = exp(-arg) * i0(arg)        
+               end do
+            end do
+         end do
+      end do
+
+
       if (debug) write (*, *) 'gyro_averages::init_bessel::test_gyro_average'
 !    call test_gyro_average
 

@@ -477,7 +477,7 @@ contains
 # endif
    end subroutine write_fluxes_kxkyz_nc
 
-subroutine write_energy_kxkyz_nc(nout, free_energy_kxkyz, drive_kxkyz, dissipation_kxkyz)
+   subroutine write_energy_kxkyz_nc(nout, free_energy_kxkyz, drive_kxkyz, dissipation_kxkyz)
 # ifdef NETCDF
       use neasyf, only: neasyf_write
 # endif

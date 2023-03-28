@@ -547,7 +547,7 @@ contains
 
    !> Calculate free energy, the drive term and the dissipation
    !>
-   !> 
+   !>
    subroutine get_free_energy(g, phi, free_energy_kxkyz, dissipation_kxkyz, drive_kxkyz)
 
       use mp, only: proc0, barrier
@@ -569,7 +569,7 @@ contains
       use stella_time, only: code_time, code_dt
       use stella_geometry, only: dVolume, bmag
 
-      use dist_fn_arrays, only: wstar      
+      use dist_fn_arrays, only: wstar
       use hyper, only: D_hyper, k2max
       use dist_fn_arrays, only: kperp2
       use spfunc, only: i0
@@ -592,7 +592,6 @@ contains
       complex, dimension(:), allocatable :: drive_term, dissipation_term
       complex, dimension(:, :, :, :, :), allocatable :: entropy_part_kxkyz
       complex, dimension(:, :, :, :, :), allocatable :: field_part_kxkyz
-
 
       call barrier()
 
@@ -623,21 +622,21 @@ contains
             iv = iv_idx(vmu_lo, ivmu)
             imu = imu_idx(vmu_lo, ivmu)
             is = is_idx(vmu_lo, ivmu)
-            
+
             do it = 1, ntubes
                do iz = -nzgrid, nzgrid
                   g1(:, :, iz, it, ivmu) = maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is) * maxwell_fac(is)
-                  g2(:, :, iz, it, ivmu) = exp( 2 * (vpa(iv)**2 + vperp2(ia, iz, imu)))
+                  g2(:, :, iz, it, ivmu) = exp(2 * (vpa(iv)**2 + vperp2(ia, iz, imu)))
                end do
             end do
 
-            g0(:, :, :, :, ivmu) = g(:, :, :, :, ivmu) * CONJG(g(:, :, :, :, ivmu)) * g1(:, :, :, :, ivmu)&
-                                   * g2(:, :, :, :, ivmu) 
+            g0(:, :, :, :, ivmu) = g(:, :, :, :, ivmu) * CONJG(g(:, :, :, :, ivmu)) * g1(:, :, :, :, ivmu) &
+                                   * g2(:, :, :, :, ivmu)
          end do
 ! Calculate free energy and dissipation
          call integrate_vmu(g0, weights, entropy_part_kxkyz)
          do is = 1, nspec
-            field_part_kxkyz(:,:,:,:,is) = (1-spread(gamma0x(:, :, :, is),4,ntubes)) * phi(:, :, :, :) * CONJG(phi(:, :, :, :))
+            field_part_kxkyz(:, :, :, :, is) = (1 - spread(gamma0x(:, :, :, is), 4, ntubes)) * phi(:, :, :, :) * CONJG(phi(:, :, :, :))
          end do
          if (proc0) then
             energy_total = 0
@@ -648,14 +647,14 @@ contains
                   do iz = -nzgrid, nzgrid
                      do ikx = 1, nakx
                         do iky = 1, naky
-                           free_energy_kxkyz(iky,ikx,iz,it,is) = real( spec(is)%dens * 2 * pi * bmag(ia,iz) * spec(is)%temp * entropy_part_kxkyz(iky, ikx, iz, it, is) &
-                                                               + spec(is)%dens * spec(is)%z**2  / spec(is)%temp * field_part_kxkyz(iky, ikx, iz, it, is) )
-                           dissipation_kxkyz(iky,ikx,iz,it,is) = real(-(kperp2(iky, ikx, ia, iz) / k2max)**2 * D_hyper & 
-                                                               * spec(is)%dens * 2 * pi * bmag(ia,iz) * spec(is)%temp * entropy_part_kxkyz(iky, ikx, iz, it, is) &
-                                                               - (kperp2(iky, ikx, ia, iz) / k2max)**2 * D_hyper &
-                                                               * spec(is)%dens * spec(is)%z**2  / spec(is)%temp * field_part_kxkyz(iky, ikx, iz, it, is))
-                           energy_total(is) = energy_total(is) + free_energy_kxkyz(iky, ikx, iz, it, is) * aky(iky) * mode_fac(iky) * dVolume(ia, 1, iz)
-                           dissipation_term(is) = dissipation_term(is) + dissipation_kxkyz(iky, ikx, iz, it, is) * aky(iky) * mode_fac(iky) * dVolume(ia, 1, iz)
+     free_energy_kxkyz(iky, ikx, iz, it, is) = real(spec(is)%dens * 2 * pi * bmag(ia, iz) * spec(is)%temp * entropy_part_kxkyz(iky, ikx, iz, it, is) &
+                                                             + spec(is)%dens * spec(is)%z**2 / spec(is)%temp * field_part_kxkyz(iky, ikx, iz, it, is))
+                           dissipation_kxkyz(iky, ikx, iz, it, is) = real(-(kperp2(iky, ikx, ia, iz) / k2max)**2 * D_hyper &
+                                                  * spec(is)%dens * 2 * pi * bmag(ia, iz) * spec(is)%temp * entropy_part_kxkyz(iky, ikx, iz, it, is) &
+                                                                          - (kperp2(iky, ikx, ia, iz) / k2max)**2 * D_hyper &
+                                                             * spec(is)%dens * spec(is)%z**2 / spec(is)%temp * field_part_kxkyz(iky, ikx, iz, it, is))
+                         energy_total(is) = energy_total(is) + free_energy_kxkyz(iky, ikx, iz, it, is) * aky(iky) * mode_fac(iky) * dVolume(ia, 1, iz)
+                 dissipation_term(is) = dissipation_term(is) + dissipation_kxkyz(iky, ikx, iz, it, is) * aky(iky) * mode_fac(iky) * dVolume(ia, 1, iz)
                         end do
                      end do
                      volume = volume + dVolume(ia, 1, iz)
@@ -665,11 +664,11 @@ contains
                drive_term(is) = drive_term(is) / volume
                dissipation_term(is) = dissipation_term(is) / volume
             end do
-         end if         
+         end if
 ! Calculate dissipation
          g3 = 0
 ! Calculate drive
-         g3 = 0 
+         g3 = 0
       end if
       if (proc0) then
          is = 1

@@ -76,7 +76,7 @@ contains
          allocate (aj1v(nmu, kxkyz_lo%llim_proc:kxkyz_lo%ulim_alloc))
          aj1v = 0.
       end if
-   
+
       if (debug) write (*, *) 'gyro_averages::init_bessel::calculate_aj0v_aj1v'
       ia = 1
       do ikxkyz = kxkyz_lo%llim_proc, kxkyz_lo%ulim_proc
@@ -121,7 +121,7 @@ contains
             end do
          end do
       end if
-      
+
       if (.not. allocated(gamma0x)) then
          allocate (gamma0x(naky, nakx, -nzgrid:nzgrid, is))
          gamma0x = 0.
@@ -131,13 +131,12 @@ contains
          do iz = -nzgrid, nzgrid
             do ikx = 1, nakx
                do iky = 1, naky
-                  arg = spec(is)%bess_fac * spec(is)%temp *  kperp2(iky, ikx, ia, iz)/(spec(is)%z * spec(is)%z * bmag(ia, iz))
-                  gamma0x(iky, ikx, iz, is) = exp(-arg) * i0(arg)        
+                  arg = spec(is)%bess_fac * spec(is)%temp * kperp2(iky, ikx, ia, iz) / (spec(is)%z * spec(is)%z * bmag(ia, iz))
+                  gamma0x(iky, ikx, iz, is) = exp(-arg) * i0(arg)
                end do
             end do
          end do
       end do
-
 
       if (debug) write (*, *) 'gyro_averages::init_bessel::test_gyro_average'
 !    call test_gyro_average

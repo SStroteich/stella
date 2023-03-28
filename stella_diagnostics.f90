@@ -564,7 +564,7 @@ contains
       use run_parameters, only: fphi
       use kt_grids, only: aky
       use kt_grids, only: naky, nakx
-      use gyro_averages, only: gyro_average, gamma0x
+      use gyro_averages, only: gyro_average, gamma0x, aj0x
       use volume_averages, only: mode_fac
       use stella_time, only: code_time, code_dt
       use stella_geometry, only: dVolume, bmag
@@ -582,16 +582,16 @@ contains
       real, dimension(:, :, -nzgrid:, :, :), intent(out) :: dissipation_kxkyz
       real, dimension(:, :, -nzgrid:, :, :), intent(out) :: drive_kxkyz
       integer :: ivmu, imu, iv, iz, it, is, ia, ikx, iky
-      real :: energy
-      real :: drive
-      real :: dissipation
+      real :: energy_sum
+      real :: dissipation_sum
+      real :: drive_sum
       real :: flx_norm
       real :: volume
       real, dimension(:), allocatable :: weights
       complex, dimension(:), allocatable :: energy_total
       complex, dimension(:), allocatable :: drive_term, dissipation_term
-      complex, dimension(:, :, :, :, :), allocatable :: entropy_part_kxkyz
-      complex, dimension(:, :, :, :, :), allocatable :: field_part_kxkyz
+      complex, dimension(:, :, :, :, :), allocatable :: velocity_integral1
+      complex, dimension(:, :, :, :, :), allocatable :: velocity_integral2
 
 
       call barrier()
@@ -600,11 +600,15 @@ contains
       dissipation_kxkyz = 0.
       drive_kxkyz = 0.
 
+      energy_sum = 0.
+      dissipation_sum = 0.
+      drive_sum = 0.
+
       ia = 1
       !TODO ensure real values
       !TODO check normalization
-      allocate (entropy_part_kxkyz(naky, nakx, -nzgrid:nzgrid, ntubes, nspec))
-      allocate (field_part_kxkyz(naky, nakx, -nzgrid:nzgrid, ntubes, nspec))
+      allocate (velocity_integral1(naky, nakx, -nzgrid:nzgrid, ntubes, nspec))
+      allocate (velocity_integral2(naky, nakx, -nzgrid:nzgrid, ntubes, nspec))
       allocate (weights(nspec))
       allocate (energy_total(nspec))
       allocate (drive_term(nspec))
@@ -635,25 +639,24 @@ contains
                                    * g2(:, :, :, :, ivmu) 
          end do
 ! Calculate free energy and dissipation
-         call integrate_vmu(g0, weights, entropy_part_kxkyz)
+         call integrate_vmu(g0, weights, velocity_integral1)
          do is = 1, nspec
-            field_part_kxkyz(:,:,:,:,is) = (1-spread(gamma0x(:, :, :, is),4,ntubes)) * phi(:, :, :, :) * CONJG(phi(:, :, :, :))
+            velocity_integral2(:,:,:,:,is) = (1-spread(gamma0x(:, :, :, is),4,ntubes)) * phi(:, :, :, :) * CONJG(phi(:, :, :, :))
          end do
          if (proc0) then
             energy_total = 0
-            drive_term = 0
             dissipation_term = 0
             do is = 1, nspec
                do it = 1, ntubes
                   do iz = -nzgrid, nzgrid
                      do ikx = 1, nakx
                         do iky = 1, naky
-                           free_energy_kxkyz(iky,ikx,iz,it,is) = real( spec(is)%dens * 2 * pi * bmag(ia,iz) * spec(is)%temp * entropy_part_kxkyz(iky, ikx, iz, it, is) &
-                                                               + spec(is)%dens * spec(is)%z**2  / spec(is)%temp * field_part_kxkyz(iky, ikx, iz, it, is) )
+                           free_energy_kxkyz(iky,ikx,iz,it,is) = real( spec(is)%dens * 2 * pi * bmag(ia,iz) * spec(is)%temp * velocity_integral1(iky, ikx, iz, it, is) &
+                                                               + spec(is)%dens * spec(is)%z**2  / spec(is)%temp * velocity_integral2(iky, ikx, iz, it, is) )
                            dissipation_kxkyz(iky,ikx,iz,it,is) = real(-(kperp2(iky, ikx, ia, iz) / k2max)**2 * D_hyper & 
-                                                               * spec(is)%dens * 2 * pi * bmag(ia,iz) * spec(is)%temp * entropy_part_kxkyz(iky, ikx, iz, it, is) &
+                                                               * spec(is)%dens * 2 * pi * bmag(ia,iz) * spec(is)%temp * velocity_integral1(iky, ikx, iz, it, is) &
                                                                - (kperp2(iky, ikx, ia, iz) / k2max)**2 * D_hyper &
-                                                               * spec(is)%dens * spec(is)%z**2  / spec(is)%temp * field_part_kxkyz(iky, ikx, iz, it, is))
+                                                               * spec(is)%dens * spec(is)%z**2  / spec(is)%temp * velocity_integral2(iky, ikx, iz, it, is))
                            energy_total(is) = energy_total(is) + free_energy_kxkyz(iky, ikx, iz, it, is) * aky(iky) * mode_fac(iky) * dVolume(ia, 1, iz)
                            dissipation_term(is) = dissipation_term(is) + dissipation_kxkyz(iky, ikx, iz, it, is) * aky(iky) * mode_fac(iky) * dVolume(ia, 1, iz)
                         end do
@@ -662,41 +665,51 @@ contains
                   end do
                end do
                energy_total(is) = energy_total(is) / volume
-               drive_term(is) = drive_term(is) / volume
                dissipation_term(is) = dissipation_term(is) / volume
+               energy_sum = energy_sum + energy_total(is)
+               dissipation_sum = dissipation_sum + dissipation_term(is)
             end do
          end if         
-! Calculate dissipation
-         g3 = 0
 ! Calculate drive
-         g3 = 0 
+         do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
+            iv = iv_idx(vmu_lo, ivmu)
+            imu = imu_idx(vmu_lo, ivmu)
+            is = is_idx(vmu_lo, ivmu)
+            g0(:, :, :, :, ivmu) = CONJG(phi(:, :, :, :)) * g(:, :, :, :, ivmu) *g1(:,:,:,:,ivmu)&
+                                     * g2(:,:,:,:,ivmu)* spread(aj0x(:, :, :, ivmu),4,ntubes) * spread(spread(spread(wstar(ia,:,ivmu),1,naky),2,nakx),4,ntubes)
+            g3(:, :, :, :, ivmu) = 2* code_dt * spec(is)%z * phi(:, :, :, :) * CONJG(phi(:, :, :, :)) *g1(:,:,:,:,ivmu)&
+                                     * g2(:,:,:,:,ivmu)* spread(aj0x(:, :, :, ivmu),4,ntubes)**2 * spread(spread(spread(wstar(ia,:,ivmu),1,naky),2,nakx),4,ntubes)
+         end do
+         call integrate_vmu(g0, weights, velocity_integral1)
+         call integrate_vmu(g3, weights, velocity_integral2)
+         if (proc0) then
+            drive_term = 0
+            do is = 1, nspec
+               do it = 1, ntubes
+                  do iz = -nzgrid, nzgrid
+                     do ikx = 1, nakx
+                        do iky = 1, naky
+                           drive_kxkyz(iky,ikx,iz,it,is) = aimag(pi * spec(is)%dens * bmag(ia,iz) * aky(iky) * 2 * code_dt * spec(is)%temp&
+                           *velocity_integral1(iky, ikx, iz, it, is)&
+                           + pi * spec(is)%dens * bmag(ia,iz) * aky(iky) * 2 * code_dt * spec(is)%z&
+                           *velocity_integral2(iky, ikx, iz, it, is))
+                           drive_term(is) = drive_term(is) + drive_kxkyz(iky, ikx, iz, it, is) * aky(iky) * mode_fac(iky) * dVolume(ia, 1, iz)
+                        end do
+                     end do
+                     volume = volume + dVolume(ia, 1, iz)
+                  end do
+               end do
+               drive_term(is) = drive_term(is) / volume
+               drive_sum = drive_sum + drive_term(is)
+            end do
+         end if         
       end if
       if (proc0) then
-         is = 1
-
-         energy = energy_total(is)
-         dissipation = dissipation_term(is)
-         drive = drive_term(is)
-         !write (energy_unit, '(4e16.8)') code_time, energy, dissipation, drive
-         write (energy_unit, '(3e16.8)') code_time, real(energy_total(is)), aimag(energy_total(is))
+         
+         write (energy_unit, '(4e16.8)') code_time, energy_sum, dissipation_sum, drive_sum
 
          call flush (energy_unit)
       end if
-      !if(proc0) then
-      !do iky = 1, naky
-      !   do ikx = 1, nakx
-      !      do it = 1, ntubes
-      !         do iz = -nzgrid, nzgrid
-      !            do is = 1, nspec
-      !              write (*, '(10es15.4e3,i3)') zed(iz), aky(iky), akx(ikx), &
-      !                 real(free_energy_kxkyz(iky, ikx, iz, it, is)), aimag(free_energy_kxkyz(iky, ikx, iz, it, is))
-      !            end do
-      !         end do
-      !         write (*, *)
-      !      end do
-      !   end do
-      !end do
-      !end if
       if (allocated(weights)) deallocate (weights)
       if (allocated(energy_total)) deallocate (energy_total)
       if (allocated(drive_term)) deallocate (drive_term)

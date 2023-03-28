@@ -605,7 +605,6 @@ contains
       drive_sum = 0.
 
       ia = 1
-      !TODO ensure real values
       !TODO check normalization
       allocate (velocity_integral1(naky, nakx, -nzgrid:nzgrid, ntubes, nspec))
       allocate (velocity_integral2(naky, nakx, -nzgrid:nzgrid, ntubes, nspec))
@@ -641,7 +640,7 @@ contains
 ! Calculate free energy and dissipation
          call integrate_vmu(g0, weights, velocity_integral1)
          do is = 1, nspec
-            velocity_integral2(:,:,:,:,is) = (1-spread(gamma0x(:, :, :, is),4,ntubes)) * phi(:, :, :, :) * CONJG(phi(:, :, :, :))
+            velocity_integral2(:, :, :, :, is) = (1 - spread(gamma0x(:, :, :, is), 4, ntubes)) * phi(:, :, :, :) * CONJG(phi(:, :, :, :))
          end do
          if (proc0) then
             energy_total = 0

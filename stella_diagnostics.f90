@@ -24,6 +24,7 @@ module stella_diagnostics
    logical :: write_radial_fluxes
    logical :: write_radial_moments
    logical :: write_fluxes_kxkyz
+   logical :: write_energy_kxkyz
    logical :: flux_norm
 
    !> Arrays needed for averaging in x,y,z
@@ -75,6 +76,7 @@ contains
       call broadcast(write_radial_fluxes)
       call broadcast(write_radial_moments)
       call broadcast(write_fluxes_kxkyz)
+      call broadcast(write_energy_kxkyz)
       call broadcast(flux_norm)
 
    end subroutine read_stella_diagnostics_knobs
@@ -154,7 +156,7 @@ contains
       namelist /stella_diagnostics_knobs/ nwrite, navg, nsave, &
          save_for_restart, write_phi_vs_time, write_gvmus, write_gzvs, &
          write_omega, write_energy, write_kspectra, write_moments, write_radial_fluxes, &
-         write_radial_moments, write_fluxes_kxkyz, flux_norm, nc_mult
+         write_radial_moments, write_fluxes_kxkyz, write_energy_kxkyz, flux_norm, nc_mult
 
       if (proc0) then
          nwrite = 50
@@ -171,6 +173,7 @@ contains
          write_radial_fluxes = radial_variation
          write_radial_moments = radial_variation
          write_fluxes_kxkyz = .false.
+         write_energy_kxkyz = .false.
          nc_mult = 1
          flux_norm = .true.
 
@@ -299,6 +302,7 @@ contains
       use stella_io, only: write_radial_fluxes_nc
       use stella_io, only: write_radial_moments_nc
       use stella_io, only: write_fluxes_kxkyz_nc
+      use stella_io, only: write_energy_kxkyz_nc
       use stella_io, only: sync_nc
       use stella_time, only: code_time, code_dt
       use zgrid, only: nztot, nzgrid, ntubes
@@ -325,9 +329,9 @@ contains
       real, dimension(:, :), allocatable :: dens_x, upar_x, temp_x
       real, dimension(:, :), allocatable :: phi2_vs_kxky
       real, dimension(:, :, :, :, :), allocatable :: pflx_kxkyz, vflx_kxkyz, qflx_kxkyz
-      complex, dimension(:, :, :, :, :), allocatable :: free_energy_kxkyz
-      complex, dimension(:, :, :, :, :), allocatable :: dissipation_kxkyz
-      complex, dimension(:, :, :, :, :), allocatable :: drive_kxkyz
+      real, dimension(:, :, :, :, :), allocatable :: free_energy_kxkyz
+      real, dimension(:, :, :, :, :), allocatable :: dissipation_kxkyz
+      real, dimension(:, :, :, :, :), allocatable :: drive_kxkyz
       complex, dimension(:, :, :, :, :), allocatable :: density, upar, temperature, spitzer2
 
       complex, dimension(:, :), allocatable :: omega_avg
@@ -500,6 +504,10 @@ contains
             if (debug) write (*, *) 'stella_diagnostics::diagnose_stella::write_fluxes_kxkyz'
             if (proc0) call write_fluxes_kxkyz_nc(nout, pflx_kxkyz, vflx_kxkyz, qflx_kxkyz)
          end if
+         if (write_energy_kxkyz) then
+            if (debug) write (*, *) 'stella_diagnostics::diagnose_stella::write_energy_kxkyz'
+            if (proc0) call write_energy_kxkyz_nc(nout, free_energy_kxkyz, drive_kxkyz, dissipation_kxkyz)
+         end if
          if (write_gvmus) then
             allocate (gvmus(nvpa, nmu, nspec))
             if (debug) write (*, *) 'stella_diagnostics::diagnose_stella::get_gvmus'
@@ -537,40 +545,42 @@ contains
 
    end subroutine diagnose_stella
 
-   !> Calculate free energy
+   !> Calculate free energy, the drive term and the dissipation
    !>
-   !> Assumes that the df is passed in
+   !> 
    subroutine get_free_energy(g, phi, free_energy_kxkyz, dissipation_kxkyz, drive_kxkyz)
 
       use mp, only: proc0, barrier
       use constants, only: zi, pi
       use dist_fn_arrays, only: g0, g1, g2, g3
-      use dist_fn_arrays, only: wstar
       use stella_layouts, only: vmu_lo
       use stella_layouts, only: iv_idx, imu_idx, is_idx
       use species, only: spec, nspec
       use stella_geometry, only: grho_norm
       use zgrid, only: nzgrid, ntubes
-      use vpamu_grids, only: mu, vpa, integrate_vmu
+      use vpamu_grids, only: mu, vpa, vperp2
+      use vpamu_grids, only: integrate_vmu
       use vpamu_grids, only: maxwell_vpa, maxwell_mu, maxwell_fac
       use run_parameters, only: fphi
       use kt_grids, only: aky
       use kt_grids, only: naky, nakx
-      use gyro_averages, only: gyro_average, aj0x
+      use gyro_averages, only: gyro_average, gamma0x
       use volume_averages, only: mode_fac
       use stella_time, only: code_time, code_dt
       use stella_geometry, only: dVolume, bmag
 
+      use dist_fn_arrays, only: wstar      
       use hyper, only: D_hyper, k2max
       use dist_fn_arrays, only: kperp2
+      use spfunc, only: i0
 
       implicit none
 
       complex, dimension(:, :, -nzgrid:, :, vmu_lo%llim_proc:), intent(in) :: g
       complex, dimension(:, :, -nzgrid:, :), intent(in) :: phi
-      complex, dimension(:, :, -nzgrid:, :, :), intent(out) :: free_energy_kxkyz
-      complex, dimension(:, :, -nzgrid:, :, :), intent(out) :: dissipation_kxkyz
-      complex, dimension(:, :, -nzgrid:, :, :), intent(out) :: drive_kxkyz
+      real, dimension(:, :, -nzgrid:, :, :), intent(out) :: free_energy_kxkyz
+      real, dimension(:, :, -nzgrid:, :, :), intent(out) :: dissipation_kxkyz
+      real, dimension(:, :, -nzgrid:, :, :), intent(out) :: drive_kxkyz
       integer :: ivmu, imu, iv, iz, it, is, ia, ikx, iky
       real :: energy
       real :: drive
@@ -617,24 +627,17 @@ contains
             do it = 1, ntubes
                do iz = -nzgrid, nzgrid
                   g1(:, :, iz, it, ivmu) = maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is) * maxwell_fac(is)
+                  g2(:, :, iz, it, ivmu) = exp( 2 * (vpa(iv)**2 + vperp2(ia, iz, imu)))
                end do
             end do
 
-            g0(:, :, :, :, ivmu) = spec(is)%temp * exp(2 *(mu(imu)+vpa(iv)*vpa(iv)))&
-                                   * g(:, :, :, :, ivmu) * CONJG(g(:, :, :, :, ivmu)) * g1(:, :, :, :, ivmu)&
-                                   + spec(is)%z * spread(aj0x(:, :, :, ivmu),4,ntubes) * g1(:, :, :, :, ivmu)&
-                                   * exp((mu(imu)+vpa(iv)*vpa(iv))) * (phi(:, :, :, :) * CONJG(g(:, :, :, :, ivmu))&
-                                   + g(:, :, :, :, ivmu) * CONJG(phi(:, :, :, :)))&
-                                   + spec(is)%z * spec(is)%z / spec(is)%temp * spread(aj0x(:, :, :, ivmu),4,ntubes)&
-                                   * spread(aj0x(:, :, :, ivmu),4,ntubes) * g1(:, :, :, :, ivmu) * phi(:, :, :, :) * CONJG(phi(:, :, :, :))
-
-            !Instead of gamma0x use the discrete velocity space integral
+            g0(:, :, :, :, ivmu) = g(:, :, :, :, ivmu) * CONJG(g(:, :, :, :, ivmu)) * g1(:, :, :, :, ivmu)&
+                                   * g2(:, :, :, :, ivmu) 
          end do
- 
-! Calculate free energy
+! Calculate free energy and dissipation
          call integrate_vmu(g0, weights, entropy_part_kxkyz)
          do is = 1, nspec
-            field_part_kxkyz(:,:,:,:,is) = spec(is)%z * spec(is)%z / spec(is)%temp  * phi(:, :, :, :) * CONJG(phi(:, :, :, :))
+            field_part_kxkyz(:,:,:,:,is) = (1-spread(gamma0x(:, :, :, is),4,ntubes)) * phi(:, :, :, :) * CONJG(phi(:, :, :, :))
          end do
          if (proc0) then
             energy_total = 0
@@ -645,9 +648,14 @@ contains
                   do iz = -nzgrid, nzgrid
                      do ikx = 1, nakx
                         do iky = 1, naky
-                           free_energy_kxkyz(iky,ikx,iz,it,is) = spec(is)%dens * 2 * pi * bmag(ia,iz) * entropy_part_kxkyz(iky, ikx, iz, it, is) &
-                                                               + spec(is)%dens * field_part_kxkyz(iky, ikx, iz, it, is)
+                           free_energy_kxkyz(iky,ikx,iz,it,is) = real( spec(is)%dens * 2 * pi * bmag(ia,iz) * spec(is)%temp * entropy_part_kxkyz(iky, ikx, iz, it, is) &
+                                                               + spec(is)%dens * spec(is)%z**2  / spec(is)%temp * field_part_kxkyz(iky, ikx, iz, it, is) )
+                           dissipation_kxkyz(iky,ikx,iz,it,is) = real(-(kperp2(iky, ikx, ia, iz) / k2max)**2 * D_hyper & 
+                                                               * spec(is)%dens * 2 * pi * bmag(ia,iz) * spec(is)%temp * entropy_part_kxkyz(iky, ikx, iz, it, is) &
+                                                               - (kperp2(iky, ikx, ia, iz) / k2max)**2 * D_hyper &
+                                                               * spec(is)%dens * spec(is)%z**2  / spec(is)%temp * field_part_kxkyz(iky, ikx, iz, it, is))
                            energy_total(is) = energy_total(is) + free_energy_kxkyz(iky, ikx, iz, it, is) * aky(iky) * mode_fac(iky) * dVolume(ia, 1, iz)
+                           dissipation_term(is) = dissipation_term(is) + dissipation_kxkyz(iky, ikx, iz, it, is) * aky(iky) * mode_fac(iky) * dVolume(ia, 1, iz)
                         end do
                      end do
                      volume = volume + dVolume(ia, 1, iz)
@@ -666,13 +674,12 @@ contains
       if (proc0) then
          is = 1
 
-         energy = abs(energy_total(is))
-         dissipation = abs(dissipation_term(is))
-         drive = abs(drive_term(is))
-         !energy = energy_total(is)*CONJG(energy_total(is))
-         !dissipation = dissipation_term(is)*CONJG(dissipation_term(is))
-         !drive = drive_term(is)*CONJG(drive_term(is))
-         write (energy_unit, '(4e16.8)') code_time, energy, dissipation, drive
+         energy = energy_total(is)
+         dissipation = dissipation_term(is)
+         drive = drive_term(is)
+         !write (energy_unit, '(4e16.8)') code_time, energy, dissipation, drive
+         write (energy_unit, '(3e16.8)') code_time, real(energy_total(is)), aimag(energy_total(is))
+
          call flush (energy_unit)
       end if
       !if(proc0) then

@@ -23,6 +23,8 @@ module stella_io
    public :: write_radial_fluxes_nc
    public :: write_radial_moments_nc
    public :: write_fluxes_kxkyz_nc
+   public :: write_energy_kxkyz_nc
+
    public :: get_nout
    public :: sync_nc
 
@@ -474,6 +476,31 @@ contains
                         long_name="Heat flux")
 # endif
    end subroutine write_fluxes_kxkyz_nc
+
+subroutine write_energy_kxkyz_nc(nout, free_energy_kxkyz, drive_kxkyz, dissipation_kxkyz)
+# ifdef NETCDF
+      use neasyf, only: neasyf_write
+# endif
+      implicit none
+      !> Current timestep
+      integer, intent(in) :: nout
+      real, dimension(:, :, :, :, :), intent(in) :: free_energy_kxkyz, drive_kxkyz, dissipation_kxkyz
+
+# ifdef NETCDF
+      call neasyf_write(ncid, "free_energy_kxkyz", free_energy_kxkyz, &
+                        dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
+                        start=[1, 1, 1, 1, 1, nout], &
+                        long_name="Free energy")
+      call neasyf_write(ncid, "drive_kxkyz", drive_kxkyz, &
+                        dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
+                        start=[1, 1, 1, 1, 1, nout], &
+                        long_name="Drive term")
+      call neasyf_write(ncid, "dissipation_kxkyz", dissipation_kxkyz, &
+                        dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
+                        start=[1, 1, 1, 1, 1, nout], &
+                        long_name="Dissipation term")
+# endif
+   end subroutine write_energy_kxkyz_nc
 
    subroutine write_moments_nc(nout, density, upar, temperature, spitzer2)
       implicit none

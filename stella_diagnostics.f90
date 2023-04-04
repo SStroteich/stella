@@ -674,13 +674,17 @@ contains
             iv = iv_idx(vmu_lo, ivmu)
             imu = imu_idx(vmu_lo, ivmu)
             is = is_idx(vmu_lo, ivmu)
-            g0(:, :, :, :, ivmu) = CONJG(phi(:, :, :, :)) * g(:, :, :, :, ivmu) *g1(:,:,:,:,ivmu)&
-                                     * g2(:,:,:,:,ivmu)* spread(aj0x(:, :, :, ivmu),4,ntubes) * spread(spread(spread(wstar(ia,:,ivmu),1,naky),2,nakx),4,ntubes)
-            g3(:, :, :, :, ivmu) = 2* code_dt * spec(is)%z * phi(:, :, :, :) * CONJG(phi(:, :, :, :)) *g1(:,:,:,:,ivmu)&
-                                     * g2(:,:,:,:,ivmu)* spread(aj0x(:, :, :, ivmu),4,ntubes)**2 * spread(spread(spread(wstar(ia,:,ivmu),1,naky),2,nakx),4,ntubes)
+            do it = 1, ntubes
+               do iz = -nzgrid, nzgrid
+                  g1(:, :, iz, it, ivmu) = maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is) * maxwell_fac(is)
+                  g2(:, :, iz, it, ivmu) = exp( vpa(iv)**2 + vperp2(ia, iz, imu))
+               end do
+            end do
+            g0(:, :, :, :, ivmu) = CONJG(phi(:, :, :, :)) * g(:, :, :, :, ivmu) &
+                                     * g2(:,:,:,:,ivmu)* spread(aj0x(:, :, :, ivmu),4,ntubes)&
+                                     * 2 / code_dt * spread(spread(spread(wstar(ia,:,ivmu),1,naky),2,nakx),4,ntubes)
          end do
          call integrate_vmu(g0, weights, velocity_integral1)
-         call integrate_vmu(g3, weights, velocity_integral2)
          if (proc0) then
             drive_term = 0
             do is = 1, nspec
@@ -688,10 +692,8 @@ contains
                   do iz = -nzgrid, nzgrid
                      do ikx = 1, nakx
                         do iky = 1, naky
-                           drive_kxkyz(iky,ikx,iz,it,is) = aimag(pi * spec(is)%dens * bmag(ia,iz) * aky(iky) * 2 * code_dt * spec(is)%temp&
-                           *velocity_integral1(iky, ikx, iz, it, is)&
-                           + pi * spec(is)%dens * bmag(ia,iz) * aky(iky) * 2 * code_dt * spec(is)%z&
-                           *velocity_integral2(iky, ikx, iz, it, is))
+                           drive_kxkyz(iky,ikx,iz,it,is) = aimag(pi * spec(is)%dens * bmag(ia,iz) * aky(iky) * spec(is)%temp&
+                           *velocity_integral1(iky, ikx, iz, it, is))
                            drive_term(is) = drive_term(is) + drive_kxkyz(iky, ikx, iz, it, is) * aky(iky) * mode_fac(iky) * dVolume(ia, 1, iz)
                         end do
                      end do

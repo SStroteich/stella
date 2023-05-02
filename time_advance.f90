@@ -5,6 +5,11 @@ module time_advance
    public :: advance_stella
    public :: time_gke, time_parallel_nl
    public :: checksum
+   public :: advance_wdriftx_explicit
+   public :: advance_wdrifty_explicit
+   public :: advance_ExB_nonlinearity
+   public :: advance_wstar_explicit
+
 
    private
 

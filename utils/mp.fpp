@@ -1446,7 +1446,6 @@ contains
       call mpi_send(z, size(z), mpicmplx, dest, tagp, comm, ierror)
    end subroutine comm_send_complex_array
 
-
    subroutine nonblocking_send_complex_array(z, dest, tag, request)
       implicit none
       complex, dimension(:), intent(in) :: z

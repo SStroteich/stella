@@ -558,7 +558,6 @@ contains
 
    !> Calculate free energy, the drive term and the dissipation
    !>
-   !> 
    subroutine get_free_energy(g, phi, free_energy_kxkyz, dissipation_kxkyz, drive_kxkyz, &
                               drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz, &
                               part_flux, mom_flux, heat_flux)
@@ -592,7 +591,7 @@ contains
 
 
 
-      use dist_fn_arrays, only: wstar      
+      use dist_fn_arrays, only: wstar
       use hyper, only: D_hyper, k2max
       use dist_fn_arrays, only: kperp2
       use spfunc, only: i0
@@ -692,7 +691,7 @@ contains
             iv = iv_idx(vmu_lo, ivmu)
             imu = imu_idx(vmu_lo, ivmu)
             is = is_idx(vmu_lo, ivmu)
-            
+
             do it = 1, ntubes
                do iz = -nzgrid, nzgrid
                   g1(:, :, iz, it, ivmu) = exp(vpa(iv)**2 + vperp2(ia, iz, imu))

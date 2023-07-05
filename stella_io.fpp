@@ -477,7 +477,8 @@ contains
 # endif
    end subroutine write_fluxes_kxkyz_nc
 
-   subroutine write_energy_kxkyz_nc(nout, free_energy_kxkyz, drive_kxkyz, dissipation_kxkyz)
+   subroutine write_energy_kxkyz_nc(nout, free_energy_kxkyz, drive_kxkyz, dissipation_kxkyz, drifts_kxkyz,&
+                                    streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz)
 # ifdef NETCDF
       use neasyf, only: neasyf_write
 # endif
@@ -485,6 +486,7 @@ contains
       !> Current timestep
       integer, intent(in) :: nout
       real, dimension(:, :, :, :, :), intent(in) :: free_energy_kxkyz, drive_kxkyz, dissipation_kxkyz
+      real, dimension(:, :, :, :, :), intent(in) :: drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz,mirror_kxkyz
 
 # ifdef NETCDF
       call neasyf_write(ncid, "free_energy_kxkyz", free_energy_kxkyz, &
@@ -499,6 +501,22 @@ contains
                         dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
                         start=[1, 1, 1, 1, 1, nout], &
                         long_name="Dissipation term")
+      call neasyf_write(ncid, 'drifts_kxkyz', drifts_kxkyz, &
+                        dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
+                        start=[1, 1, 1, 1, 1, nout], &
+                        long_name="Drift term")
+      call neasyf_write(ncid, 'streaming_kxkyz', streaming_kxkyz, &
+                        dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
+                        start=[1, 1, 1, 1, 1, nout], &
+                        long_name="Streaming term")
+      call neasyf_write(ncid, 'nonlinear_kxkyz', nonlinear_kxkyz, &
+                        dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
+                        start=[1, 1, 1, 1, 1, nout], &
+                        long_name="Nonlinear term")
+      call neasyf_write(ncid, 'mirror_kxkyz', mirror_kxkyz, &
+                        dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
+                        start=[1, 1, 1, 1, 1, nout], &
+                        long_name="Mirror term")
 # endif
    end subroutine write_energy_kxkyz_nc
 

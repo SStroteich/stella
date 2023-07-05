@@ -14,6 +14,12 @@ module parallel_streaming
    public :: stream_rad_var1
    public :: stream_rad_var2
 
+   public :: get_dgdz_centered
+   public :: get_dgdz
+   public :: add_stream_term
+   
+   
+
    private
 
    interface center_zed

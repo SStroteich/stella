@@ -3,7 +3,6 @@ module gyro_averages
    use common_types, only: coupled_alpha_type
 
    public :: aj0x, aj0v, aj1x, aj1v
-   public :: gamma0x
    public :: init_bessel, finish_bessel
    public :: gyro_average
    public :: gyro_average_j1
@@ -35,8 +34,6 @@ module gyro_averages
    real, dimension(:, :), allocatable :: aj0v, aj1v
    ! (nmu, -kxkyz-layout-)
 
-   real, dimension(:, :, :, :), allocatable :: gamma0x
-   ! (naky, nakx, -nzgrid:nzgrid, is)
    type(coupled_alpha_type), dimension(:, :, :, :), allocatable :: j0_ffs, j0_B_maxwell_ffs
 
    logical :: bessinit = .false.
@@ -121,23 +118,6 @@ contains
             end do
          end do
       end if
-
-      if (.not. allocated(gamma0x)) then
-         allocate (gamma0x(naky, nakx, -nzgrid:nzgrid, is))
-         gamma0x = 0.
-      end if
-      ia = 1
-      do is = 1, nspec
-         do iz = -nzgrid, nzgrid
-            do ikx = 1, nakx
-               do iky = 1, naky
-                  arg = spec(is)%bess_fac * spec(is)%temp * kperp2(iky, ikx, ia, iz) / (spec(is)%z * spec(is)%z * bmag(ia, iz))
-                  gamma0x(iky, ikx, iz, is) = exp(-arg) * i0(arg)
-               end do
-            end do
-         end do
-      end do
-
       if (debug) write (*, *) 'gyro_averages::init_bessel::test_gyro_average'
 !    call test_gyro_average
 

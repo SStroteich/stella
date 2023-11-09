@@ -264,6 +264,7 @@ contains
                'drifts', 'streaming', 'mirror', 'nonlinearity'
          end if
       end if
+      call open_output_file(test_unit, '.test', overwrite)
 
    end subroutine open_loop_ascii_files
 

@@ -10,7 +10,6 @@ module time_advance
    public :: advance_ExB_nonlinearity
    public :: advance_wstar_explicit
 
-
    private
 
    interface get_dgdy

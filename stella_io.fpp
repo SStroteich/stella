@@ -477,7 +477,7 @@ contains
 # endif
    end subroutine write_fluxes_kxkyz_nc
 
-   subroutine write_energy_kxkyz_nc(nout, free_energy_kxkyz, drive_kxkyz, dissipation_kxkyz, drifts_kxkyz,&
+   subroutine write_energy_kxkyz_nc(nout, free_energy_kxkyz, drive_kxkyz, dissipation_kxkyz, drifts_kxkyz, &
                                     streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz)
 # ifdef NETCDF
       use neasyf, only: neasyf_write
@@ -486,7 +486,7 @@ contains
       !> Current timestep
       integer, intent(in) :: nout
       real, dimension(:, :, :, :, :), intent(in) :: free_energy_kxkyz, drive_kxkyz, dissipation_kxkyz
-      real, dimension(:, :, :, :, :), intent(in) :: drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz,mirror_kxkyz
+      real, dimension(:, :, :, :, :), intent(in) :: drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz
 
 # ifdef NETCDF
       call neasyf_write(ncid, "free_energy_kxkyz", free_energy_kxkyz, &

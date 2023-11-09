@@ -17,8 +17,6 @@ module parallel_streaming
    public :: get_dgdz_centered
    public :: get_dgdz
    public :: add_stream_term
-   
-   
 
    private
 

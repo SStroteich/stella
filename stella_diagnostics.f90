@@ -260,7 +260,7 @@ contains
          call open_output_file(energy_unit, '.energy', overwrite)
          if (.not. restart) then
             write (energy_unit, '(9a20)') '#time', 'energy', &
-               'dissipation', 'drive ', 'drive_from_fluxes',&
+               'dissipation', 'drive ', 'drive_from_fluxes', &
                'drifts', 'streaming', 'mirror', 'nonlinearity'
          end if
       end if
@@ -445,7 +445,7 @@ contains
          else
             if (debug) write (*, *) 'stella_diagnostics::write_free_energy'
             call g_to_h(gnew, phi, fphi)
-            !> get_free_energy assumes the non adiabtic part h to be passed in 
+            !> get_free_energy assumes the non adiabtic part h to be passed in
             call get_free_energy(gnew, phi, free_energy_kxkyz, dissipation_kxkyz, drive_kxkyz, &
                                  drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz, &
                                  part_flux, mom_flux, heat_flux)
@@ -517,8 +517,8 @@ contains
          end if
          if (write_energy_kxkyz) then
             if (debug) write (*, *) 'stella_diagnostics::diagnose_stella::write_energy_kxkyz'
-            if (proc0) call write_energy_kxkyz_nc(nout, free_energy_kxkyz, drive_kxkyz, dissipation_kxkyz,&
-                                                   drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz)
+            if (proc0) call write_energy_kxkyz_nc(nout, free_energy_kxkyz, drive_kxkyz, dissipation_kxkyz, &
+                                                  drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz)
          end if
          if (write_gvmus) then
             allocate (gvmus(nvpa, nmu, nspec))
@@ -578,7 +578,7 @@ contains
       use run_parameters, only: fphi
       use kt_grids, only: aky
       use kt_grids, only: naky, nakx
-      use gyro_averages, only:  aj0x, gyro_average
+      use gyro_averages, only: aj0x, gyro_average
       use volume_averages, only: mode_fac
       use stella_time, only: code_time, code_dt
       use stella_geometry, only: dVolume, bmag, b_dot_grad_z
@@ -632,7 +632,7 @@ contains
       real :: mirror_sum
       real :: flx_norm
       real :: volume
-      real :: test1, test2 
+      real :: test1, test2
       real, dimension(:), allocatable :: weights
       complex, dimension(:), allocatable :: energy_total
       complex, dimension(:), allocatable :: drive_term, dissipation_term
@@ -648,7 +648,6 @@ contains
       logical :: restart_time_step
       logical :: use_advance_wstar = .true.
       restart_time_step = .false.
-
 
       free_energy_kxkyz = 0.
       dissipation_kxkyz = 0.
@@ -739,8 +738,8 @@ contains
                energy_sum = energy_sum + energy_total(is)
                dissipation_sum = dissipation_sum + dissipation_term(is)
             end do
-         end if   
-               
+         end if
+
          !Calculate drive
          g3 = 0.
          call advance_wstar_explicit(phi, g3)
@@ -768,13 +767,13 @@ contains
                      end do
                   end do
                end do
-               drive_via_flux(is) = (heat_flux(is) - 3/2 * part_flux(is)) * spec(is)%tprim + part_flux(is) * spec(is)%fprim
+               drive_via_flux(is) = (heat_flux(is) - 3 / 2 * part_flux(is)) * spec(is)%tprim + part_flux(is) * spec(is)%fprim
                drive_sum_via_flux = drive_sum_via_flux + drive_via_flux(is)
                drive_term(is) = drive_term(is) / volume
                drive_sum = drive_sum + drive_term(is)
             end do
-         end if       
-         
+         end if
+
          !Calculate drifts
          g3 = 0
          call advance_wdriftx_explicit(g, phi_zero, g3)
@@ -859,7 +858,7 @@ contains
                streaming_term(is) = streaming_term(is) / volume
                streaming_sum = streaming_sum + streaming_term(is)
             end do
-         end if  
+         end if
 
          !Calculate mirror
          g2 = 0
@@ -968,16 +967,16 @@ contains
                   nonlinear_term(is) = nonlinear_term(is) / volume
                   nonlinear_sum = nonlinear_sum + nonlinear_term(is)
                end do
-            end if  
+            end if
          end if
       end if
 
       if (proc0) then
-         write (energy_unit, '(9e20.8E3)') code_time, energy_sum, dissipation_sum, drive_sum, drive_sum_via_flux, drifts_sum, streaming_sum, mirror_sum&
-                                          , nonlinear_sum
+      write (energy_unit, '(9e20.8E3)') code_time, energy_sum, dissipation_sum, drive_sum, drive_sum_via_flux, drifts_sum, streaming_sum, mirror_sum &
+            , nonlinear_sum
          call flush (energy_unit)
       end if
-      
+
       if (allocated(weights)) deallocate (weights)
       if (allocated(energy_total)) deallocate (energy_total)
       if (allocated(drive_term)) deallocate (drive_term)

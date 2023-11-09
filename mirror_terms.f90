@@ -8,6 +8,8 @@ module mirror_terms
    public :: advance_mirror_explicit, advance_mirror_implicit
    public :: add_mirror_radial_variation
    public :: time_mirror
+   public :: get_dgdvpa_explicit,get_dgdvpa_centered
+   public :: add_mirror_term
 
    private
 
@@ -500,6 +502,33 @@ contains
       deallocate (tmp)
 
    end subroutine get_dgdvpa_explicit
+
+   subroutine get_dgdvpa_centered(g)
+
+      use finite_differences, only: second_order_centered_vpa
+      use stella_layouts, only: kxkyz_lo, iz_idx, is_idx
+      use vpamu_grids, only: nvpa, nmu, dvpa
+
+      implicit none
+
+      complex, dimension(:, :, kxkyz_lo%llim_proc:), intent(in out) :: g
+
+      integer :: ikxkyz, imu, iz, is
+      complex, dimension(:), allocatable :: tmp
+
+      allocate (tmp(nvpa))
+      do ikxkyz = kxkyz_lo%llim_proc, kxkyz_lo%ulim_proc
+         iz = iz_idx(kxkyz_lo, ikxkyz)
+         is = is_idx(kxkyz_lo, ikxkyz)
+         do imu = 1, nmu
+            call second_order_centered_vpa(1, g(:, imu, ikxkyz), dvpa,  tmp)
+            g(:, imu, ikxkyz) = tmp
+         end do
+      end do
+
+      deallocate (tmp)
+
+   end subroutine get_dgdvpa_centered
 
    subroutine add_mirror_term(g, src)
 

@@ -743,9 +743,9 @@ contains
                do iz = -nzgrid, nzgrid
                   !g0(:, :, iz, it, ivmu) = g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
                   !                  maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is) * 2/code_dt
-                  g0(:, :, iz, it, ivmu) =  g(:, :, iz, it, ivmu) * CONJG(phi(:, :, iz, it)) * aj0x(:, :, iz, ivmu)&
-                                    *maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is) * 2/code_dt &
-                                    * spread(spread(wstar(ia,iz,ivmu),1,naky),2,nakx)                       
+                  g0(:, :, iz, it, ivmu) = g(:, :, iz, it, ivmu) * CONJG(phi(:, :, iz, it)) * aj0x(:, :, iz, ivmu) &
+                                           * maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is) * 2 / code_dt &
+                                           * spread(spread(wstar(ia, iz, ivmu), 1, naky), 2, nakx)
                end do
             end do
          end do

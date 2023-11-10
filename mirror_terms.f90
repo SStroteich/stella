@@ -8,7 +8,7 @@ module mirror_terms
    public :: advance_mirror_explicit, advance_mirror_implicit
    public :: add_mirror_radial_variation
    public :: time_mirror
-   public :: get_dgdvpa_explicit,get_dgdvpa_centered
+   public :: get_dgdvpa_explicit, get_dgdvpa_centered
    public :: add_mirror_term
 
    private
@@ -521,7 +521,7 @@ contains
          iz = iz_idx(kxkyz_lo, ikxkyz)
          is = is_idx(kxkyz_lo, ikxkyz)
          do imu = 1, nmu
-            call second_order_centered_vpa(1, g(:, imu, ikxkyz), dvpa,  tmp)
+            call second_order_centered_vpa(1, g(:, imu, ikxkyz), dvpa, tmp)
             g(:, imu, ikxkyz) = tmp
          end do
       end do

@@ -19,7 +19,7 @@ module init_g
                          ginitopt_noise = 2, ginitopt_restart_many = 3, &
                          ginitopt_kpar = 4, ginitopt_nltest = 5, &
                          ginitopt_kxtest = 6, ginitopt_rh = 7, &
-                         ginitopt_remap = 8, ginitopt_fourierblob = 9,&
+                         ginitopt_remap = 8, ginitopt_fourierblob = 9, &
                          ginitopt_testing = 10
 
    real :: width0, phiinit, imfac, refac, zf_init
@@ -155,17 +155,17 @@ contains
       implicit none
 
       type(text_option), dimension(10), parameter :: ginitopts = &
-                                                    (/text_option('default', ginitopt_default), &
-                                                      text_option('noise', ginitopt_noise), &
-                                                      text_option('many', ginitopt_restart_many), &
-                                                      text_option('nltest', ginitopt_nltest), &
-                                                      text_option('kxtest', ginitopt_kxtest), &
-                                                      text_option('kpar', ginitopt_kpar), &
-                                                      text_option('rh', ginitopt_rh), &
-                                                      text_option('remap', ginitopt_remap), &
-                                                      text_option('fourierblob', ginitopt_fourierblob), &
-                                                      text_option('testing', ginitopt_testing) &                                                      
-                                                      /)
+                                                     (/text_option('default', ginitopt_default), &
+                                                       text_option('noise', ginitopt_noise), &
+                                                       text_option('many', ginitopt_restart_many), &
+                                                       text_option('nltest', ginitopt_nltest), &
+                                                       text_option('kxtest', ginitopt_kxtest), &
+                                                       text_option('kpar', ginitopt_kpar), &
+                                                       text_option('rh', ginitopt_rh), &
+                                                       text_option('remap', ginitopt_remap), &
+                                                       text_option('fourierblob', ginitopt_fourierblob), &
+                                                       text_option('testing', ginitopt_testing) &
+                                                       /)
       character(20) :: ginit_option
       namelist /init_g_knobs/ ginit_option, width0, phiinit, chop_side, &
          restart_file, restart_dir, read_many, left, scale, tstart, zf_init, &
@@ -733,7 +733,7 @@ contains
       use kt_grids, only: naky, nakx, nalpha
       use kt_grids, only: aky, akx
       use kt_grids, only: reality, zonal_mode
-      use vpamu_grids, only: nvpa, nmu,dvpa
+      use vpamu_grids, only: nvpa, nmu, dvpa
       use vpamu_grids, only: vpa, mu, vpa_max
       use dist_fn_arrays, only: gvmu
       use stella_layouts, only: kxkyz_lo, iz_idx, ikx_idx, iky_idx, is_idx
@@ -783,10 +783,9 @@ contains
          ikx = ikx_idx(kxkyz_lo, ikxkyz)
          iky = iky_idx(kxkyz_lo, ikxkyz)
          is = is_idx(kxkyz_lo, ikxkyz)
-         gvmu(:, :, ikxkyz) = phiinit * phi(iky, ikx, iz) / abs(spec(is)%z) *&
-          spread(maxwell_mu(ia, iz, :, is), 1, nvpa) * spread(maxwell_vpa(:, is), 2, nmu) 
+         gvmu(:, :, ikxkyz) = phiinit * phi(iky, ikx, iz) / abs(spec(is)%z) * &
+                              spread(maxwell_mu(ia, iz, :, is), 1, nvpa) * spread(maxwell_vpa(:, is), 2, nmu)
       end do
-      
 
    end subroutine ginit_testing
 

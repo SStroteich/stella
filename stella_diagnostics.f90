@@ -566,7 +566,7 @@ contains
       use mp, only: proc0, barrier
       use constants, only: zi, pi
       use dist_fn_arrays, only: g0, g1, g2, g3
-      use dist_fn_arrays, only: gvmu, wstar
+      use dist_fn_arrays, only: gvmu,, wstar
       use stella_layouts, only: vmu_lo
       use stella_layouts, only: iv_idx, imu_idx, is_idx
       use species, only: spec, nspec
@@ -751,9 +751,9 @@ contains
                do iz = -nzgrid, nzgrid
                   !g0(:, :, iz, it, ivmu) = g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
                   !                  maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is) * 2/code_dt
-                  g0(:, :, iz, it, ivmu) =  g(:, :, iz, it, ivmu) * CONJG(phi(:, :, iz, it)) * aj0x(:, :, iz, ivmu)&
+                  g0(:, :, iz, it, ivmu) =  g(:, :, iz, it, ivmu) * CONJ(phi(:, :, iz, it)) * spread(aj0x(:, :, iz, ivmu),4,ntubes)&
                                     *maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is) * 2/code_dt &
-                                    * spread(spread(wstar(ia,iz,ivmu),1,naky),2,nakx)                       
+                                    * spread(spread(spread(wstar(ia,iz,ivmu),1,naky),2,nakx),4,ntubes)                       
                end do
             end do
          end do

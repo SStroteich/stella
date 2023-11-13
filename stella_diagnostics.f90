@@ -701,7 +701,7 @@ contains
             do it = 1, ntubes
                do iz = -nzgrid, nzgrid
                   g0(:, :, iz, it, ivmu) = g(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
-                                           maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is)
+                                          1/(maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is))
                end do
             end do
          end do
@@ -713,7 +713,7 @@ contains
                do it = 1, ntubes
                   do iz = -nzgrid, nzgrid
                      do ikx = 1, nakx
-               free_energy_kxkyz(:, ikx, iz, it, is) = 0.5 * mode_fac * (real(spec(is)%dens * spec(is)%temp * velocity_integral1(:, ikx, iz, it, is) &
+                        free_energy_kxkyz(:, ikx, iz, it, is) = 0.5 * mode_fac * (real(spec(is)%dens * spec(is)%temp * velocity_integral1(:, ikx, iz, it, is) &
                                                   - spec(is)%dens * spec(is)%z**2 / spec(is)%temp * phi(:, ikx, iz, it) * CONJG(phi(:, ikx, iz, it))))
                         dissipation_kxkyz(:, ikx, iz, it, is) = 0.5 * mode_fac * (real(D_hyper * (kperp2(:, ikx, ia, iz) / k2max)**2 &
                                                   * spec(is)%dens * spec(is)%z**2 / spec(is)%temp * phi(:, ikx, iz, it) * CONJG(phi(:, ikx, iz, it)) &
@@ -741,11 +741,11 @@ contains
             is = is_idx(vmu_lo, ivmu)
             do it = 1, ntubes
                do iz = -nzgrid, nzgrid
-                  !g0(:, :, iz, it, ivmu) = g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
-                  !                  maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is) * 2/code_dt
-                  g0(:, :, iz, it, ivmu) =  g(:, :, iz, it, ivmu) * CONJG(phi(:, :, iz, it)) * aj0x(:, :, iz, ivmu)&
-                                    *maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is) * 2/code_dt &
-                                    * spread(spread(wstar(ia,iz,ivmu),1,naky),2,nakx)                       
+                  g0(:, :, iz, it, ivmu) = g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
+                                    1/(maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is)) * 2/code_dt
+                  !g0(:, :, iz, it, ivmu) =  g(:, :, iz, it, ivmu) * CONJG(phi(:, :, iz, it)) * aj0x(:, :, iz, ivmu)&
+                  !                  *maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is) * 2/code_dt &
+                  !                  * spread(spread(wstar(ia,iz,ivmu),1,naky),2,nakx)                       
                end do
             end do
          end do
@@ -780,7 +780,7 @@ contains
             do it = 1, ntubes
                do iz = -nzgrid, nzgrid
                   g0(:, :, iz, it, ivmu) = g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
-                                           maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is) * 1 / code_dt
+                                           1/(maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is)) * 1 / code_dt
                end do
             end do
          end do
@@ -827,7 +827,7 @@ contains
                do iz = -nzgrid, nzgrid
                   g3(:, :, iz, it, ivmu) = code_dt * b_dot_grad_z(ia, iz) * vpa(iv) * g2(:, :, iz, it, ivmu)
                   g0(:, :, iz, it, ivmu) = g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
-                                           maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is) * 1 / code_dt
+                                           1/(maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is)) * 1 / code_dt
                end do
             end do
          end do
@@ -902,7 +902,7 @@ contains
             do it = 1, ntubes
                do iz = -nzgrid, nzgrid
                   g0(:, :, iz, it, ivmu) = g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
-                                           maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is) * 1 / code_dt
+                                           1/(maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is)) * 1 / code_dt
                end do
             end do
          end do
@@ -942,7 +942,7 @@ contains
                do it = 1, ntubes
                   do iz = -nzgrid, nzgrid
                      g0(:, :, iz, it, ivmu) = g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
-                                              maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is) * 1 / code_dt
+                                              1/(maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is)) * 1 / code_dt
                   end do
                end do
             end do

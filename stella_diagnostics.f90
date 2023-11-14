@@ -825,7 +825,7 @@ contains
             call add_stream_term(g2(:, :, :, :, ivmu), ivmu, g3(:, :, :, :, ivmu))
             do it = 1, ntubes
                do iz = -nzgrid, nzgrid
-                  g3(:, :, iz, it, ivmu) = -code_dt * b_dot_grad_z(ia, iz) * vpa(iv) * g2(:, :, iz, it, ivmu)
+                  g3(:, :, iz, it, ivmu) = code_dt * b_dot_grad_z(ia, iz) * vpa(iv) * g2(:, :, iz, it, ivmu)
                   g0(:, :, iz, it, ivmu) = g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
                                            1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is)) * 1 / code_dt
                end do
@@ -901,7 +901,7 @@ contains
             is = is_idx(vmu_lo, ivmu)
             do it = 1, ntubes
                do iz = -nzgrid, nzgrid
-                  g0(:, :, iz, it, ivmu) = g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
+                  g0(:, :, iz, it, ivmu) = - g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
                                            1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is)) * 1 / code_dt
                end do
             end do

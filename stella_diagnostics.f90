@@ -819,7 +819,7 @@ contains
          !end do
          do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
             call get_dgdz_centered(g(:, :, :, :, ivmu), ivmu, g2(:, :, :, :, ivmu))
-         !   call get_dgdz(g(:, :, :, :, ivmu), ivmu, g1(:, :, :, :, ivmu))
+            !   call get_dgdz(g(:, :, :, :, ivmu), ivmu, g1(:, :, :, :, ivmu))
             iv = iv_idx(vmu_lo, ivmu)
             imu = imu_idx(vmu_lo, ivmu)
             is = is_idx(vmu_lo, ivmu)
@@ -834,21 +834,21 @@ contains
          end do
          call integrate_vmu(g0, weights, velocity_integral1)
          if (proc0) then
-         !   write (test_unit, '(9a20)') 'iz', 'zed', 'g', 'g1', 'g2', 'g0', 'velocity_integral1', 'streaming_kxkyz'
-         !   call flush (test_unit)
+            !   write (test_unit, '(9a20)') 'iz', 'zed', 'g', 'g1', 'g2', 'g0', 'velocity_integral1', 'streaming_kxkyz'
+            !   call flush (test_unit)
             streaming_term = 0
             do is = 1, nspec
                do it = 1, ntubes
                   do iz = -nzgrid, nzgrid
                      do ikx = 1, nakx
-                        streaming_kxkyz(:, ikx, iz, it, is) = 0.5 * mode_fac * (real(spec(is)%dens * spec(is)%temp * velocity_integral1(:, ikx, iz, it, is)))
+                 streaming_kxkyz(:, ikx, iz, it, is) = 0.5 * mode_fac * (real(spec(is)%dens * spec(is)%temp * velocity_integral1(:, ikx, iz, it, is)))
                         streaming_term(is) = streaming_term(is) + sum(streaming_kxkyz(:, ikx, iz, it, is) * dVolume(ia, ikx, iz))
                         volume = volume + dVolume(ia, ikx, iz)
                      end do
-         !            ivmu = vmu_lo%llim_proc
-         !            write (test_unit, '(I20,8e20.8E3)')  iz, zed(iz), real(g(1,1,iz,1,ivmu)), real(g1(1,1,iz,1,ivmu)), real(g2(1,1,iz,1,ivmu)), real(g0(1,1,iz,1,ivmu))&
-         !                                    , real(velocity_integral1(1,1,iz,1,is)), real(streaming_kxkyz(1,1,iz,1,is))
-         !            call flush (test_unit)
+                     !            ivmu = vmu_lo%llim_proc
+                     !            write (test_unit, '(I20,8e20.8E3)')  iz, zed(iz), real(g(1,1,iz,1,ivmu)), real(g1(1,1,iz,1,ivmu)), real(g2(1,1,iz,1,ivmu)), real(g0(1,1,iz,1,ivmu))&
+                     !                                    , real(velocity_integral1(1,1,iz,1,is)), real(streaming_kxkyz(1,1,iz,1,is))
+                     !            call flush (test_unit)
                   end do
                end do
                streaming_term(is) = streaming_term(is) / volume

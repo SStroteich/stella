@@ -616,7 +616,6 @@ contains
       real, dimension(:), intent(in) :: part_flux, mom_flux, heat_flux
       integer, intent(in) :: istep
 
-
       integer :: ivmu, imu, iv, iz, it, is, ia, ikx, iky, ikxkyz
       real :: energy_sum
       real :: dissipation_sum

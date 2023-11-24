@@ -47,14 +47,13 @@ program stella
          call checktime(avail_cpu_time, stop_stella)
          call checkcodedt(stop_stella)
       end if
-<<<<<<< HEAD
       if (stop_stella .and. mod(istep, nwrite) == 1) exit
       if (convergence_switch) then
          call time_message(.false., time_convergence, ' convergence')
          call testing_convergence(istep, stop_stella)
          call time_message(.false., time_convergence, ' convergence')
       end if
-      call advance_stella(istep)
+      call advance_stella(istep, stop_stella)
       call update_time
       if (nsave > 0 .and. mod(istep, nsave) == 0) then
          call scatter(kxkyz2vmu, gnew, gvmu)

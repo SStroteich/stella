@@ -448,7 +448,7 @@ contains
             !> get_free_energy assumes the non adiabtic part h to be passed in
             call get_free_energy(gnew, phi, free_energy_kxkyz, dissipation_kxkyz, drive_kxkyz, &
                                  drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz, &
-                                 part_flux, mom_flux, heat_flux)
+                                 part_flux, mom_flux, heat_flux, istep)
             call g_to_h(gnew, phi, -fphi)
          end if
       end if
@@ -562,7 +562,7 @@ contains
    !>
    subroutine get_free_energy(g, phi, free_energy_kxkyz, dissipation_kxkyz, drive_kxkyz, &
                               drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz, &
-                              part_flux, mom_flux, heat_flux)
+                              part_flux, mom_flux, heat_flux, istep)
 
       use mp, only: proc0, barrier
       use constants, only: zi, pi
@@ -614,6 +614,8 @@ contains
       real, dimension(:, :, -nzgrid:, :, :), intent(out) :: mirror_kxkyz
 
       real, dimension(:), intent(in) :: part_flux, mom_flux, heat_flux
+      integer, intent(in) :: istep
+
 
       integer :: ivmu, imu, iv, iz, it, is, ia, ikx, iky, ikxkyz
       real :: energy_sum
@@ -936,7 +938,7 @@ contains
          !Calculate nonlinearity
          if (nonlinear) then
             g3 = 0
-            call advance_ExB_nonlinearity(g, g3, restart_time_step)
+            call advance_ExB_nonlinearity(g, g3, restart_time_step, istep)
             do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
                iv = iv_idx(vmu_lo, ivmu)
                imu = imu_idx(vmu_lo, ivmu)

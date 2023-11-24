@@ -967,19 +967,19 @@ contains
          call advance_explicit_rk3(g, restart_time_step, istep)
       case (explicit_option_rk4)
          !> RK4
-         call advance_explicit_rk4(g)
+         call advance_explicit_rk4(g, restart_time_step, istep)
       case (explicit_option_ssp32)
          ! SSP(3,2)
-         call advance_explicit_ssp32(g)
+         call advance_explicit_ssp32(g, restart_time_step, istep)
       case (explicit_option_ssp42)
          ! SSP(4,2)
-         call advance_explicit_ssp42(g)
+         call advance_explicit_ssp42(g, restart_time_step, istep)
       case (explicit_option_ssp52)
          ! SSP(5,2)
-         call advance_explicit_ssp52(g)
+         call advance_explicit_ssp52(g, restart_time_step, istep)
       case (explicit_option_ssp43)
          ! SSP(4,3)
-         call advance_explicit_ssp43(g)
+         call advance_explicit_ssp43(g, restart_time_step, istep)
       end select
 
       !> enforce periodicity for periodic (including zonal) modes
@@ -1160,7 +1160,7 @@ contains
    end subroutine advance_explicit_rk4
 
    !> Strong stability preserving RK (3,2)
-   subroutine advance_explicit_ssp32(g)
+   subroutine advance_explicit_ssp32(g, restart_time_step, istep)
 
       use dist_fn_arrays, only: g0, g1, g2
       use zgrid, only: nzgrid
@@ -1170,9 +1170,10 @@ contains
       implicit none
 
       complex, dimension(:, :, -nzgrid:, :, vmu_lo%llim_proc:), intent(in out) :: g
+      logical, intent(in out) :: restart_time_step
+      integer, intent(in) :: istep
 
       integer :: icnt
-      logical :: restart_time_step
 
       ! if CFL condition is violated by nonlinear term
       ! then must modify time step size and restart time step
@@ -1190,17 +1191,17 @@ contains
       do while (icnt <= 3)
          select case (icnt)
          case (1)
-            call solve_gke(g0, g1, restart_time_step)
+            call solve_gke(g0, g1, restart_time_step, istep)
          case (2)
             ! g1 is h*k1
             g1 = g0 + g1 / 2.
             if (RK_step) call mb_communicate(g1)
-            call solve_gke(g1, g2, restart_time_step)
+            call solve_gke(g1, g2, restart_time_step, istep)
          case (3)
             ! g2 is h*k2
             g2 = g1 + g2 / 2.
             if (RK_step) call mb_communicate(g2)
-            call solve_gke(g2, g, restart_time_step)
+            call solve_gke(g2, g, restart_time_step, istep)
          end select
          if (restart_time_step) then
             icnt = 1
@@ -1215,7 +1216,7 @@ contains
    end subroutine advance_explicit_ssp32
 
    !> Strong stability preserving RK (4,2)
-   subroutine advance_explicit_ssp42(g)
+   subroutine advance_explicit_ssp42(g, restart_time_step, istep)
 
       use dist_fn_arrays, only: g0, g1, g2, g3
       use zgrid, only: nzgrid
@@ -1225,14 +1226,14 @@ contains
       implicit none
 
       complex, dimension(:, :, -nzgrid:, :, vmu_lo%llim_proc:), intent(in out) :: g
+      logical, intent(in out) :: restart_time_step
+      integer, intent(in) :: istep
 
       integer :: icnt
-      logical :: restart_time_step
 
       ! if CFL condition is violated by nonlinear term
       ! then must modify time step size and restart time step
       ! assume false and test
-      restart_time_step = .false.
 
       if (RK_step) call mb_communicate(g)
 
@@ -1245,22 +1246,22 @@ contains
       do while (icnt <= 4)
          select case (icnt)
          case (1)
-            call solve_gke(g0, g1, restart_time_step)
+            call solve_gke(g0, g1, restart_time_step, istep)
          case (2)
             ! g1 is h*k1
             g1 = g0 + g1 / 3.
             if (RK_step) call mb_communicate(g1)
-            call solve_gke(g1, g2, restart_time_step)
+            call solve_gke(g1, g2, restart_time_step, istep)
          case (3)
             ! g2 is h*k2
             g2 = g1 + g2 / 3.
             if (RK_step) call mb_communicate(g2)
-            call solve_gke(g2, g3, restart_time_step)
+            call solve_gke(g2, g3, restart_time_step, istep)
          case (4)
             ! g3 is h*k3
             g3 = g2 + g3 / 3.
             if (RK_step) call mb_communicate(g3)
-            call solve_gke(g3, g, restart_time_step)
+            call solve_gke(g3, g, restart_time_step, istep)
          end select
          if (restart_time_step) then
             icnt = 1
@@ -1275,7 +1276,7 @@ contains
    end subroutine advance_explicit_ssp42
 
    !> Strong stability preserving RK (5,2)
-   subroutine advance_explicit_ssp52(g)
+   subroutine advance_explicit_ssp52(g, restart_time_step, istep)
 
       use dist_fn_arrays, only: g0, g1, g2, g3, g4
       use zgrid, only: nzgrid
@@ -1285,9 +1286,10 @@ contains
       implicit none
 
       complex, dimension(:, :, -nzgrid:, :, vmu_lo%llim_proc:), intent(in out) :: g
+      logical, intent(in out) :: restart_time_step
+      integer, intent(in) :: istep
 
       integer :: icnt
-      logical :: restart_time_step
 
       ! if CFL condition is violated by nonlinear term
       ! then must modify time step size and restart time step
@@ -1305,27 +1307,27 @@ contains
       do while (icnt <= 5)
          select case (icnt)
          case (1)
-            call solve_gke(g0, g1, restart_time_step)
+            call solve_gke(g0, g1, restart_time_step, istep)
          case (2)
             ! g1 is h*k1
             g1 = g0 + g1 / 4.
             if (RK_step) call mb_communicate(g1)
-            call solve_gke(g1, g2, restart_time_step)
+            call solve_gke(g1, g2, restart_time_step, istep)
          case (3)
             ! g2 is h*k2
             g2 = g1 + g2 / 4.
             if (RK_step) call mb_communicate(g2)
-            call solve_gke(g2, g3, restart_time_step)
+            call solve_gke(g2, g3, restart_time_step, istep)
          case (4)
             ! g3 is h*k3
             g3 = g2 + g3 / 4.
             if (RK_step) call mb_communicate(g3)
-            call solve_gke(g3, g4, restart_time_step)
+            call solve_gke(g3, g4, restart_time_step, istep)
          case (5)
             ! g3 is h*k3
             g4 = g3 + g4 / 4.
             if (RK_step) call mb_communicate(g4)
-            call solve_gke(g4, g, restart_time_step)
+            call solve_gke(g4, g, restart_time_step, istep)
          end select
          if (restart_time_step) then
             icnt = 1
@@ -1340,7 +1342,7 @@ contains
    end subroutine advance_explicit_ssp52
 
    !> Strong stability preserving RK (4,3)
-   subroutine advance_explicit_ssp43(g)
+   subroutine advance_explicit_ssp43(g, restart_time_step, istep)
 
       use dist_fn_arrays, only: g0, g1, g2, g3, g4
       use zgrid, only: nzgrid
@@ -1350,9 +1352,10 @@ contains
       implicit none
 
       complex, dimension(:, :, -nzgrid:, :, vmu_lo%llim_proc:), intent(in out) :: g
+      logical, intent(in out) :: restart_time_step
+      integer, intent(in) :: istep
 
       integer :: icnt
-      logical :: restart_time_step
 
       ! if CFL condition is violated by nonlinear term
       ! then must modify time step size and restart time step
@@ -1370,22 +1373,22 @@ contains
       do while (icnt <= 4)
          select case (icnt)
          case (1)
-            call solve_gke(g0, g4, restart_time_step)
+            call solve_gke(g0, g4, restart_time_step, istep)
          case (2)
             ! g1 is h*k1
             g1 = g0 + 11./20.*g4
             if (RK_step) call mb_communicate(g1)
-            call solve_gke(g1, g2, restart_time_step)
+            call solve_gke(g1, g2, restart_time_step, istep)
          case (3)
             ! g2 is h*k2
             g2 = 3./8.*g0 + 5./8.*(g1 + 11./20.*g2)
             if (RK_step) call mb_communicate(g2)
-            call solve_gke(g2, g3, restart_time_step)
+            call solve_gke(g2, g3, restart_time_step, istep)
          case (4)
             ! g3 is h*k3
             g3 = 4./9.*g0 + 5./9.*(g2 + 11./20.*g3)
             if (RK_step) call mb_communicate(g3)
-            call solve_gke(g3, g, restart_time_step)
+            call solve_gke(g3, g, restart_time_step, istep)
          end select
          if (restart_time_step) then
             icnt = 1

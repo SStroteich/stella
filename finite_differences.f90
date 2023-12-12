@@ -10,6 +10,8 @@ module finite_differences
    public :: second_order_centered
    public :: fourth_order_centered
    public :: second_order_centered_zed
+   public :: fourth_derivate_second_centered_vpa
+   public :: fourth_derivative_second_centered_zed
    public :: four_point_triangle
    public :: fd3pt, fd5pt
    public :: d2_3pt
@@ -1223,5 +1225,82 @@ contains
       deallocate (gam)
 
    end subroutine tridag_complex
+
+      subroutine fourth_derivate_second_centered_vpa(llim, f, del, df)
+
+      implicit none
+
+      integer, intent(in) :: llim
+      complex, dimension(llim:), intent(in) :: f
+      real, intent(in) :: del
+      complex, dimension(llim:), intent(out) :: df
+
+      integer :: i, ulim
+
+      ulim = size(f) + llim - 1
+
+      i = llim
+      df(i) = (6 * f(i) - 4 * f(i+1) + f(i+2)) / del**4
+      i = llim + 1
+      df(i) = (-4 *f(i-1)+ 6 * f(i) - 4 * f(i+1) + f(i+2)) / del**4
+      i = ulim - 1
+      df(i) = (f(i-2) - 4 * f(i-1) + 6 * f(i) - 4 * f(i+1)) / del**4
+      i = ulim
+      df(i) = (f(i-2) - 4 * f(i-1) + 6 * f(i)) / del**4
+
+      do i = llim + 2, ulim - 2
+         df(i) = ( f(i-2) -4 * f(i-1)+6 * f(i) - 4 * f(i+1) + f(i+2) ) / del**4
+      end do
+
+   end subroutine fourth_derivate_second_centered_vpa
+
+      subroutine fourth_derivative_second_centered_zed(llim, iseg, nseg, f, del, fl, fr, periodic, df)
+
+      implicit none
+
+      integer, intent(in) :: llim, iseg, nseg
+      complex, dimension(llim:), intent(in) :: f
+      real, intent(in) :: del
+      complex, dimension(:), intent(in) :: fl, fr
+      logical, intent(in) :: periodic
+      complex, dimension(llim:), intent(out) :: df
+
+      integer :: i, ulim
+
+      ulim = size(f) + llim - 1
+
+      i = llim
+      if (iseg == 1 .and. .not. periodic) then
+         df(i) = (6 * f(i) - 4 * f(i+1) + f(i+2)) / del**4
+      else
+         df(i) = ( fl(1) - 4 * fl(2)+6 * f(i) - 4 * f(i+1) + f(i+2) ) / del**4
+      end if
+
+      i = llim + 1
+      if (iseg == 1 .and. .not. periodic) then
+         df(i) = (-4 *f(i-1) + 6 * f(i) - 4 * f(i+1) + f(i+2)) / del**4
+      else
+         df(i) = ( fl(2) - 4 * f(i-1)+6 * f(i) - 4 * f(i+1) + f(i+2) ) / del**4
+      end if
+
+      i = ulim-1
+      if (iseg == nseg .and. .not. periodic) then
+         df(i) = (f(i-2) - 4 * f(i-1) + 6 * f(i) - 4 * f(i+1) ) / del**4      
+      else
+         df(i) = ( f(i-2) - 4 * f(i-1) + 6 * f(i) - 4 * fr(i+1) + fr(1) ) / del**4
+      end if
+
+      i = ulim
+      if (iseg == nseg .and. .not. periodic) then
+         df(i) = (f(i-2) - 4 * f(i-1) + 6 * f(i)) / del**4      
+      else
+         df(i) = ( f(i-2) - 4 * f(i-1) + 6 * f(i) - 4 * fr(1) + fr(2) ) / del**4
+      end if
+
+      do i = llim + 2, ulim - 2
+         df(i) = ( f(i-2) -4 * f(i-1)+6 * f(i) - 4 * f(i+1) + f(i+2) ) / del**4
+      end do
+
+   end subroutine fourth_derivative_second_centered_zed
 
 end module finite_differences

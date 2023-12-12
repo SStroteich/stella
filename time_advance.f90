@@ -1532,6 +1532,11 @@ contains
       use flow_shear, only: advance_parallel_flow_shear
       use multibox, only: include_multibox_krook, add_multibox_krook
 
+      use hyper, only: advance_hyper_vpa, advance_hyper_zed
+      use hyper, only: hyp_zed, hyp_vpa
+      use dissipation, only: hyper_dissipation
+
+
       implicit none
 
       complex, dimension(:, :, -nzgrid:, :, vmu_lo%llim_proc:), intent(in) :: gin
@@ -1638,6 +1643,13 @@ contains
          if (source_option_switch == source_option_krook) call add_krook_operator(gin, rhs)
 
          if (include_multibox_krook) call add_multibox_krook(gin, rhs)
+
+         if (hyper_dissipation) then
+!          ! for hyper-dissipation, need to be in k-alpha space
+!          if (alpha_space) call transform_y2ky (gy, gk)
+            if (hyp_zed) call advance_hyper_zed(gin,rhs)
+            if (hyp_vpa) call advance_hyper_vpa(gin,rhs)
+         end if
 
       end if
 

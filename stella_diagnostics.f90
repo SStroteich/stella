@@ -315,8 +315,10 @@ contains
       use physics_flags, only: radial_variation, full_flux_surface
       use volume_averages, only: volume_average, fieldline_average
       use run_parameters, only: fphi
+      use vpamu_grids, only: set_vpa_weights
 
       implicit none
+
 
       !> The current timestep
       integer, intent(in) :: istep
@@ -444,12 +446,14 @@ contains
             if (debug) write (*, *) 'stella_diagnostics::write_free_energy_ffs'
          else
             if (debug) write (*, *) 'stella_diagnostics::write_free_energy'
+            call set_vpa_weights(.True.)
             call g_to_h(gnew, phi, fphi)
             !> get_free_energy assumes the non adiabtic part h to be passed in
             call get_free_energy(gnew, phi, free_energy_kxkyz, dissipation_kxkyz, drive_kxkyz, &
                                  drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz, &
                                  part_flux, mom_flux, heat_flux)
             call g_to_h(gnew, phi, -fphi)
+            call set_vpa_weights(.False.)
          end if
       end if
 
@@ -566,7 +570,7 @@ contains
       use mp, only: proc0, barrier
       use constants, only: zi, pi
       use dist_fn_arrays, only: g0, g1, g2, g3
-      use dist_fn_arrays, only: gvmu, wstar
+      use dist_fn_arrays, only:  wstar
       use stella_layouts, only: vmu_lo
       use stella_layouts, only: iv_idx, imu_idx, is_idx
       use species, only: spec, nspec
@@ -581,14 +585,14 @@ contains
       use gyro_averages, only: aj0x, gyro_average
       use volume_averages, only: mode_fac
       use stella_time, only: code_time, code_dt
-      use stella_geometry, only: dVolume, bmag, b_dot_grad_z
+      use stella_geometry, only: dVolume, bmag, b_dot_grad_z, dbdzed
       use physics_flags, only: nonlinear
       use dist_fn_arrays, only: kperp2
       use hyper, only: D_hyper, k2max
       use file_utils, only: close_output_file
 
       use redistribute, only: gather, scatter
-      use dist_redistribute, only: kxkyz2vmu, kxyz2vmu
+      use dist_redistribute, only: kxkyz2vmu
       use stella_layouts, only: kxyz_lo, kxkyz_lo, vmu_lo
       use stella_layouts, only: iz_idx, iky_idx, ikx_idx
 
@@ -768,7 +772,6 @@ contains
                drive_sum = drive_sum + drive_term(is)
             end do
          end if
-
          !Calculate drifts
          g3 = 0
          call advance_wdriftx_explicit(g, phi_zero, g3)
@@ -826,9 +829,9 @@ contains
             call add_stream_term(g2(:, :, :, :, ivmu), ivmu, g3(:, :, :, :, ivmu))
             do it = 1, ntubes
                do iz = -nzgrid, nzgrid
-                  g3(:, :, iz, it, ivmu) = -code_dt * b_dot_grad_z(ia, iz) * vpa(iv) * g2(:, :, iz, it, ivmu)
+                  g3(:, :, iz, it, ivmu) = - b_dot_grad_z(ia, iz) * vpa(iv) * g2(:, :, iz, it, ivmu)
                   g0(:, :, iz, it, ivmu) = g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
-                                           1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is)) * 1 / code_dt
+                                           1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is)) 
                end do
             end do
          end do
@@ -894,7 +897,7 @@ contains
          !   end do
          !end do
          call gather(kxkyz2vmu, g2v, g2)
-         call add_mirror_term(g2, g3)
+         !call add_mirror_term(g2, g3)
 
          do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
             iv = iv_idx(vmu_lo, ivmu)
@@ -902,8 +905,9 @@ contains
             is = is_idx(vmu_lo, ivmu)
             do it = 1, ntubes
                do iz = -nzgrid, nzgrid
+                  g3(:, :, iz, it, ivmu) =  b_dot_grad_z(ia, iz) * mu(imu) * dbdzed(ia, iz) * g2(:, :, iz, it, ivmu)
                   g0(:, :, iz, it, ivmu) = g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
-                                           1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is)) * 1 / code_dt
+                                           1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is)) 
                end do
             end do
          end do

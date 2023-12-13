@@ -7,14 +7,14 @@ module hyper
    public :: advance_hyper_dissipation
    public :: advance_hyper_vpa
    public :: advance_hyper_zed
-   public :: D_hyper, D_zed, D_vpar
+   public :: D_hyper, D_zed, D_vpa
    public :: hyp_vpa, hyp_zed
    public :: k2max
 
    private
 
    logical :: use_physical_ksqr, scale_to_outboard
-   real :: D_hyper, D_zed, D_vpar
+   real :: D_hyper, D_zed, D_vpa
    logical :: hyp_vpa, hyp_zed
    real :: tfac
    real :: k2max
@@ -29,7 +29,7 @@ contains
 
       implicit none
 
-      namelist /hyper/ D_hyper, D_zed, D_vpar, hyp_zed, hyp_vpa, use_physical_ksqr, scale_to_outboard
+      namelist /hyper/ D_hyper, D_zed, D_vpa, hyp_zed, hyp_vpa, use_physical_ksqr, scale_to_outboard
 
       integer :: in_file
       logical :: dexist
@@ -39,7 +39,7 @@ contains
          scale_to_outboard = .false.                                          ! scales hyperdissipation to zed = 0
          D_hyper = 0.05
          D_zed = 0.05
-         D_vpar = 0.05
+         D_vpa = 0.05
          hyp_vpa = .false.
          hyp_zed = .false.
 
@@ -50,6 +50,10 @@ contains
       call broadcast(use_physical_ksqr)
       call broadcast(scale_to_outboard)
       call broadcast(D_hyper)
+      call broadcast(D_zed)
+      call broadcast(D_vpa)
+      call broadcast(hyp_vpa)
+      call broadcast(hyp_zed)
 
    end subroutine read_parameters_hyper
 
@@ -180,7 +184,7 @@ contains
       call get_dgdvpa_fourth_order(g0v,g1v)
       call gather(kxkyz2vmu, g1v, g1)
       do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
-         gout(:, :, :, :, ivmu) = gout(:, :, :, :, ivmu)  - code_dt * D_vpar * dvpa**4 /16 * g1(:, :, :, :, ivmu)
+         gout(:, :, :, :, ivmu) = gout(:, :, :, :, ivmu)  - code_dt * D_vpa * dvpa**4 /16 * g1(:, :, :, :, ivmu)
       end do
       deallocate (g0v)
       deallocate (g1v)

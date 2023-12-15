@@ -152,11 +152,11 @@ contains
             g(:, :, :, :, ivmu) = g(:, :, :, :, ivmu) / (1.+code_dt * (spread(kperp2(:, :, ia, :), 4, ntubes) / k2max)**2 * D_hyper)
          end do
       end if
-     
+
    end subroutine advance_hyper_dissipation
 
    subroutine advance_hyper_vpa(g, gout)
-   
+
       use stella_time, only: code_dt
       use zgrid, only: nzgrid
       use stella_layouts, only: vmu_lo, kxkyz_lo
@@ -181,10 +181,10 @@ contains
       allocate (g1v(nvpa, nmu, kxkyz_lo%llim_proc:kxkyz_lo%ulim_alloc))
 
       call scatter(kxkyz2vmu, g, g0v)
-      call get_dgdvpa_fourth_order(g0v,g1v)
+      call get_dgdvpa_fourth_order(g0v, g1v)
       call gather(kxkyz2vmu, g1v, g1)
       do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
-         gout(:, :, :, :, ivmu) = gout(:, :, :, :, ivmu)  - code_dt * D_vpa * dvpa**4 /16 * g1(:, :, :, :, ivmu)
+         gout(:, :, :, :, ivmu) = gout(:, :, :, :, ivmu) - code_dt * D_vpa * dvpa**4 / 16 * g1(:, :, :, :, ivmu)
       end do
       deallocate (g0v)
       deallocate (g1v)
@@ -193,39 +193,38 @@ contains
 
    subroutine get_dgdvpa_fourth_order(g, gout)
 
-   use finite_differences, only: fourth_derivate_second_centered_vpa
-   use stella_layouts, only: kxkyz_lo, iz_idx, is_idx
-   use vpamu_grids, only: nvpa, nmu, dvpa
+      use finite_differences, only: fourth_derivate_second_centered_vpa
+      use stella_layouts, only: kxkyz_lo, iz_idx, is_idx
+      use vpamu_grids, only: nvpa, nmu, dvpa
 
-   implicit none
+      implicit none
 
-   complex, dimension(:, :, kxkyz_lo%llim_proc:), intent(in) :: g
-   complex, dimension(:, :, kxkyz_lo%llim_proc:), intent(inout) :: gout
+      complex, dimension(:, :, kxkyz_lo%llim_proc:), intent(in) :: g
+      complex, dimension(:, :, kxkyz_lo%llim_proc:), intent(inout) :: gout
 
+      integer :: ikxkyz, imu, iz, is
+      complex, dimension(:), allocatable :: tmp
 
-   integer :: ikxkyz, imu, iz, is
-   complex, dimension(:), allocatable :: tmp
-
-   allocate (tmp(nvpa))
-   do ikxkyz = kxkyz_lo%llim_proc, kxkyz_lo%ulim_proc
-      iz = iz_idx(kxkyz_lo, ikxkyz)
-      is = is_idx(kxkyz_lo, ikxkyz)
-      do imu = 1, nmu
-         call fourth_derivate_second_centered_vpa(1, g(:, imu, ikxkyz), dvpa, tmp)
-         gout(:, imu, ikxkyz) = tmp
+      allocate (tmp(nvpa))
+      do ikxkyz = kxkyz_lo%llim_proc, kxkyz_lo%ulim_proc
+         iz = iz_idx(kxkyz_lo, ikxkyz)
+         is = is_idx(kxkyz_lo, ikxkyz)
+         do imu = 1, nmu
+            call fourth_derivate_second_centered_vpa(1, g(:, imu, ikxkyz), dvpa, tmp)
+            gout(:, imu, ikxkyz) = tmp
+         end do
       end do
-   end do
 
-   deallocate (tmp)
+      deallocate (tmp)
    end subroutine get_dgdvpa_fourth_order
 
    subroutine advance_hyper_zed(g, gout)
-   
+
       use stella_time, only: code_dt
       use zgrid, only: nzgrid, ntubes, zed, delzed
       use stella_layouts, only: vmu_lo
       use dist_fn_arrays, only: kperp2
-      use kt_grids, only: naky,nakx
+      use kt_grids, only: naky, nakx
       use redistribute, only: gather, scatter
       use dist_fn_arrays, only: g1
       use dist_redistribute, only: kxkyz2vmu
@@ -241,7 +240,7 @@ contains
       ia = 1
       call get_dgdz_fourth_order(g, g1)
       do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
-         gout(:, :, :, :, ivmu) = gout(:, :, :, :, ivmu)  - code_dt * D_zed * delzed(0)**4 /16 * g1(:, :, :, :, ivmu)
+         gout(:, :, :, :, ivmu) = gout(:, :, :, :, ivmu) - code_dt * D_zed * delzed(0)**4 / 16 * g1(:, :, :, :, ivmu)
       end do
 
    end subroutine advance_hyper_zed
@@ -273,12 +272,12 @@ contains
                do ie = 1, neigen(iky)
                   do iseg = 1, nsegments(ie, iky)
                      ! first fill in ghost zones at boundaries in g(z)
-                     call fill_zed_ghost_zones(it, iseg, ie, iky, g(:, :, :, :,ivmu), gleft, gright)
+                     call fill_zed_ghost_zones(it, iseg, ie, iky, g(:, :, :, :, ivmu), gleft, gright)
                      ! now get dg/dz
                      call fourth_derivative_second_centered_zed(iz_low(iseg), iseg, nsegments(ie, iky), &
-                                                   g(iky, ikxmod(iseg, ie, iky), iz_low(iseg):iz_up(iseg), it, ivmu), &
-                                                   delzed(0), gleft, gright, periodic(iky), &
-                                                   dgdz(iky, ikxmod(iseg, ie, iky), iz_low(iseg):iz_up(iseg), it, ivmu))
+                                                                g(iky, ikxmod(iseg, ie, iky), iz_low(iseg):iz_up(iseg), it, ivmu), &
+                                                                delzed(0), gleft, gright, periodic(iky), &
+                                                                dgdz(iky, ikxmod(iseg, ie, iky), iz_low(iseg):iz_up(iseg), it, ivmu))
                   end do
                end do
             end do

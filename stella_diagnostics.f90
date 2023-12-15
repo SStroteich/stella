@@ -319,7 +319,6 @@ contains
 
       implicit none
 
-
       !> The current timestep
       integer, intent(in) :: istep
 
@@ -570,7 +569,7 @@ contains
       use mp, only: proc0, barrier
       use constants, only: zi, pi
       use dist_fn_arrays, only: g0, g1, g2, g3
-      use dist_fn_arrays, only:  wstar
+      use dist_fn_arrays, only: wstar
       use stella_layouts, only: vmu_lo
       use stella_layouts, only: iv_idx, imu_idx, is_idx
       use species, only: spec, nspec
@@ -829,9 +828,9 @@ contains
             call add_stream_term(g2(:, :, :, :, ivmu), ivmu, g3(:, :, :, :, ivmu))
             do it = 1, ntubes
                do iz = -nzgrid, nzgrid
-                  g3(:, :, iz, it, ivmu) = - b_dot_grad_z(ia, iz) * vpa(iv) * g2(:, :, iz, it, ivmu)
+                  g3(:, :, iz, it, ivmu) = -b_dot_grad_z(ia, iz) * vpa(iv) * g2(:, :, iz, it, ivmu)
                   g0(:, :, iz, it, ivmu) = g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
-                                           1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is)) 
+                                           1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is))
                end do
             end do
          end do
@@ -905,9 +904,9 @@ contains
             is = is_idx(vmu_lo, ivmu)
             do it = 1, ntubes
                do iz = -nzgrid, nzgrid
-                  g3(:, :, iz, it, ivmu) =  b_dot_grad_z(ia, iz) * mu(imu) * dbdzed(ia, iz) * g2(:, :, iz, it, ivmu)
+                  g3(:, :, iz, it, ivmu) = b_dot_grad_z(ia, iz) * mu(imu) * dbdzed(ia, iz) * g2(:, :, iz, it, ivmu)
                   g0(:, :, iz, it, ivmu) = g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
-                                           1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is)) 
+                                           1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is))
                end do
             end do
          end do

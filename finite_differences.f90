@@ -1226,7 +1226,7 @@ contains
 
    end subroutine tridag_complex
 
-      subroutine fourth_derivate_second_centered_vpa(llim, f, del, df)
+   subroutine fourth_derivate_second_centered_vpa(llim, f, del, df)
 
       implicit none
 
@@ -1240,21 +1240,21 @@ contains
       ulim = size(f) + llim - 1
 
       i = llim
-      df(i) = (6 * f(i) - 4 * f(i+1) + f(i+2)) / del**4
+      df(i) = (6 * f(i) - 4 * f(i + 1) + f(i + 2)) / del**4
       i = llim + 1
-      df(i) = (-4 *f(i-1)+ 6 * f(i) - 4 * f(i+1) + f(i+2)) / del**4
+      df(i) = (-4 * f(i - 1) + 6 * f(i) - 4 * f(i + 1) + f(i + 2)) / del**4
       i = ulim - 1
-      df(i) = (f(i-2) - 4 * f(i-1) + 6 * f(i) - 4 * f(i+1)) / del**4
+      df(i) = (f(i - 2) - 4 * f(i - 1) + 6 * f(i) - 4 * f(i + 1)) / del**4
       i = ulim
-      df(i) = (f(i-2) - 4 * f(i-1) + 6 * f(i)) / del**4
+      df(i) = (f(i - 2) - 4 * f(i - 1) + 6 * f(i)) / del**4
 
       do i = llim + 2, ulim - 2
-         df(i) = ( f(i-2) -4 * f(i-1)+6 * f(i) - 4 * f(i+1) + f(i+2) ) / del**4
+         df(i) = (f(i - 2) - 4 * f(i - 1) + 6 * f(i) - 4 * f(i + 1) + f(i + 2)) / del**4
       end do
 
    end subroutine fourth_derivate_second_centered_vpa
 
-      subroutine fourth_derivative_second_centered_zed(llim, iseg, nseg, f, del, fl, fr, periodic, df)
+   subroutine fourth_derivative_second_centered_zed(llim, iseg, nseg, f, del, fl, fr, periodic, df)
 
       implicit none
 
@@ -1271,34 +1271,34 @@ contains
 
       i = llim
       if (iseg == 1 .and. .not. periodic) then
-         df(i) = (6 * f(i) - 4 * f(i+1) + f(i+2)) / del**4
+         df(i) = (6 * f(i) - 4 * f(i + 1) + f(i + 2)) / del**4
       else
-         df(i) = ( fl(1) - 4 * fl(2)+6 * f(i) - 4 * f(i+1) + f(i+2) ) / del**4
+         df(i) = (fl(1) - 4 * fl(2) + 6 * f(i) - 4 * f(i + 1) + f(i + 2)) / del**4
       end if
 
       i = llim + 1
       if (iseg == 1 .and. .not. periodic) then
-         df(i) = (-4 *f(i-1) + 6 * f(i) - 4 * f(i+1) + f(i+2)) / del**4
+         df(i) = (-4 * f(i - 1) + 6 * f(i) - 4 * f(i + 1) + f(i + 2)) / del**4
       else
-         df(i) = ( fl(2) - 4 * f(i-1)+6 * f(i) - 4 * f(i+1) + f(i+2) ) / del**4
+         df(i) = (fl(2) - 4 * f(i - 1) + 6 * f(i) - 4 * f(i + 1) + f(i + 2)) / del**4
       end if
 
-      i = ulim-1
+      i = ulim - 1
       if (iseg == nseg .and. .not. periodic) then
-         df(i) = (f(i-2) - 4 * f(i-1) + 6 * f(i) - 4 * f(i+1) ) / del**4      
+         df(i) = (f(i - 2) - 4 * f(i - 1) + 6 * f(i) - 4 * f(i + 1)) / del**4
       else
-         df(i) = ( f(i-2) - 4 * f(i-1) + 6 * f(i) - 4 * fr(i+1) + fr(1) ) / del**4
+         df(i) = (f(i - 2) - 4 * f(i - 1) + 6 * f(i) - 4 * fr(i + 1) + fr(1)) / del**4
       end if
 
       i = ulim
       if (iseg == nseg .and. .not. periodic) then
-         df(i) = (f(i-2) - 4 * f(i-1) + 6 * f(i)) / del**4      
+         df(i) = (f(i - 2) - 4 * f(i - 1) + 6 * f(i)) / del**4
       else
-         df(i) = ( f(i-2) - 4 * f(i-1) + 6 * f(i) - 4 * fr(1) + fr(2) ) / del**4
+         df(i) = (f(i - 2) - 4 * f(i - 1) + 6 * f(i) - 4 * fr(1) + fr(2)) / del**4
       end if
 
       do i = llim + 2, ulim - 2
-         df(i) = ( f(i-2) -4 * f(i-1)+6 * f(i) - 4 * f(i+1) + f(i+2) ) / del**4
+         df(i) = (f(i - 2) - 4 * f(i - 1) + 6 * f(i) - 4 * f(i + 1) + f(i + 2)) / del**4
       end do
 
    end subroutine fourth_derivative_second_centered_zed

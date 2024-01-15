@@ -976,6 +976,9 @@ contains
       use sources, only: source_option_switch, source_option_projection
       use sources, only: source_option_krook
       use sources, only: update_tcorr_krook, project_out_zero
+      use hyper, only: advance_hyper_vpa, advance_hyper_zed
+      use hyper, only: hyp_zed, hyp_vpa
+      use dissipation, only: hyper_dissipation
 
       implicit none
 
@@ -1000,13 +1003,17 @@ contains
          !> advance the explicit parts of the GKE
          if (debug) write (*, *) 'time_advance::advance_explicit'
          call advance_explicit(gnew)
-
          !> use operator splitting to separately evolve
          !> all terms treated implicitly
          if (.not. fully_explicit) call advance_implicit(istep, phi, apar, gnew)
       else
          if (.not. fully_explicit) call advance_implicit(istep, phi, apar, gnew)
          call advance_explicit(gnew)
+      end if
+      if (hyper_dissipation) then
+         ! for hyper-dissipation, need to be in k-alpha space
+         if (hyp_zed) call advance_hyper_zed(gnew)
+         if (hyp_vpa) call advance_hyper_vpa(gnew)
       end if
 
       ! presumably this is to do with the radially global version of the code?
@@ -1532,9 +1539,7 @@ contains
       use flow_shear, only: advance_parallel_flow_shear
       use multibox, only: include_multibox_krook, add_multibox_krook
 
-      use hyper, only: advance_hyper_vpa, advance_hyper_zed
-      use hyper, only: hyp_zed, hyp_vpa
-      use dissipation, only: hyper_dissipation
+
 
 
       implicit none
@@ -1644,12 +1649,7 @@ contains
 
          if (include_multibox_krook) call add_multibox_krook(gin, rhs)
 
-         if (hyper_dissipation) then
-!          ! for hyper-dissipation, need to be in k-alpha space
-!          if (alpha_space) call transform_y2ky (gy, gk)
-            if (hyp_zed) call advance_hyper_zed(gin,rhs)
-            if (hyp_vpa) call advance_hyper_vpa(gin,rhs)
-         end if
+
 
       end if
 

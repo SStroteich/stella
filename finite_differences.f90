@@ -1303,7 +1303,7 @@ contains
       end if
       !df(i) = 0
 
-      i = ulim-1
+      i = ulim - 1
       if (iseg == nseg .and. .not. periodic) then
          df(i) = (f(i-2) - 4 * f(i-1) + 6 * f(i) - 4 * f(i+1) ) / del**4 
          df(i) = 0

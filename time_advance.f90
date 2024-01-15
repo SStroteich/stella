@@ -828,6 +828,9 @@ contains
       use sources, only: source_option_switch, source_option_projection
       use sources, only: source_option_krook
       use sources, only: update_tcorr_krook, project_out_zero
+      use hyper, only: advance_hyper_vpa, advance_hyper_zed
+      use hyper, only: hyp_zed, hyp_vpa
+      use dissipation, only: hyper_dissipation
       use mp, only: proc0, broadcast
 
       implicit none
@@ -886,6 +889,11 @@ contains
             if (.not. fully_explicit) call advance_implicit(istep, phi, apar, gnew)
             if (.not. fully_implicit) call advance_explicit(gnew, restart_time_step, istep)
          end if
+         if (hyper_dissipation) then
+            ! for hyper-dissipation, need to be in k-alpha space
+            if (hyp_zed) call advance_hyper_zed(gnew)
+            if (hyp_vpa) call advance_hyper_vpa(gnew)
+         end if         
 
          ! If the time step has not been restarted, the time advance was succesfull
          ! Otherwise, discard changes to gnew and start the time step again, fields

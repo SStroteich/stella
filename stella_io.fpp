@@ -477,15 +477,17 @@ contains
 # endif
    end subroutine write_fluxes_kxkyz_nc
 
-   subroutine write_energy_kxkyz_nc(nout, free_energy_kxkyz, drive_kxkyz, dissipation_kxkyz, drifts_kxkyz, &
-                                    streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz)
+   subroutine write_energy_kxkyz_nc(nout, free_energy_kxkyz, drive_kxkyz, &
+                                    diss_perp_kxkyz, diss_zed_kxkyz, diss_vpa_kxkyz, &
+                                    drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz)
 # ifdef NETCDF
       use neasyf, only: neasyf_write
 # endif
       implicit none
       !> Current timestep
       integer, intent(in) :: nout
-      real, dimension(:, :, :, :, :), intent(in) :: free_energy_kxkyz, drive_kxkyz, dissipation_kxkyz
+      real, dimension(:, :, :, :, :), intent(in) :: free_energy_kxkyz, drive_kxkyz
+      real, dimension(:, :, :, :, :), intent(in) :: diss_perp_kxkyz, diss_zed_kxkyz, diss_vpa_kxkyz
       real, dimension(:, :, :, :, :), intent(in) :: drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz
 
 # ifdef NETCDF
@@ -497,10 +499,18 @@ contains
                         dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
                         start=[1, 1, 1, 1, 1, nout], &
                         long_name="Drive term")
-      call neasyf_write(ncid, "dissipation_kxkyz", dissipation_kxkyz, &
+      call neasyf_write(ncid, "diss_perp_kxkyz", diss_perp_kxkyz, &
                         dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
                         start=[1, 1, 1, 1, 1, nout], &
-                        long_name="Dissipation term")
+                        long_name="Perpendicular Dissipation term")
+      call neasyf_write(ncid, "diss_zed_kxkyz", diss_zed_kxkyz, &
+                        dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
+                        start=[1, 1, 1, 1, 1, nout], &
+                        long_name="Dissipation term in z-direction")
+      call neasyf_write(ncid, "diss_vpa_kxkyz", diss_vpa_kxkyz, &
+                        dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
+                        start=[1, 1, 1, 1, 1, nout], &
+                        long_name="Dissipation term in vpa-direction")
       call neasyf_write(ncid, 'drifts_kxkyz', drifts_kxkyz, &
                         dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
                         start=[1, 1, 1, 1, 1, nout], &

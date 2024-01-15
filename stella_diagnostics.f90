@@ -259,8 +259,9 @@ contains
       if (write_energy) then
          call open_output_file(energy_unit, '.energy', overwrite)
          if (.not. restart) then
-            write (energy_unit, '(9a20)') '#time', 'energy', &
-               'dissipation', 'drive ', 'drive_from_fluxes', &
+            write (energy_unit, '(11a20)') '#time', 'energy', &
+               'diss_perp', 'diss_zed', 'diss_vpa', &
+               'drive ', 'drive_from_fluxes', &
                'drifts', 'streaming', 'mirror', 'nonlinearity'
          end if
       end if
@@ -315,6 +316,7 @@ contains
       use physics_flags, only: radial_variation, full_flux_surface
       use volume_averages, only: volume_average, fieldline_average
       use run_parameters, only: fphi
+      use vpamu_grids, only: set_vpa_weights
 
       implicit none
 
@@ -332,7 +334,7 @@ contains
       real, dimension(:, :), allocatable :: phi2_vs_kxky
       real, dimension(:, :, :, :, :), allocatable :: pflx_kxkyz, vflx_kxkyz, qflx_kxkyz
       real, dimension(:, :, :, :, :), allocatable :: free_energy_kxkyz
-      real, dimension(:, :, :, :, :), allocatable :: dissipation_kxkyz
+      real, dimension(:, :, :, :, :), allocatable :: diss_perp_kxkyz, diss_zed_kxkyz, diss_vpa_kxkyz
       real, dimension(:, :, :, :, :), allocatable :: drive_kxkyz
       real, dimension(:, :, :, :, :), allocatable :: drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz
       complex, dimension(:, :, :, :, :), allocatable :: density, upar, temperature, spitzer2
@@ -384,7 +386,10 @@ contains
       allocate (qflx_kxkyz(naky, nakx, nztot, ntubes, nspec))
 
       allocate (free_energy_kxkyz(naky, nakx, -nzgrid:nzgrid, ntubes, nspec))
-      allocate (dissipation_kxkyz(naky, nakx, -nzgrid:nzgrid, ntubes, nspec))
+      allocate (diss_perp_kxkyz(naky, nakx, -nzgrid:nzgrid, ntubes, nspec))
+      allocate (diss_zed_kxkyz(naky, nakx, -nzgrid:nzgrid, ntubes, nspec))
+      allocate (diss_vpa_kxkyz(naky, nakx, -nzgrid:nzgrid, ntubes, nspec))
+
       allocate (drive_kxkyz(naky, nakx, -nzgrid:nzgrid, ntubes, nspec))
       allocate (drifts_kxkyz(naky, nakx, -nzgrid:nzgrid, ntubes, nspec))
       allocate (streaming_kxkyz(naky, nakx, -nzgrid:nzgrid, ntubes, nspec))
@@ -444,12 +449,15 @@ contains
             if (debug) write (*, *) 'stella_diagnostics::write_free_energy_ffs'
          else
             if (debug) write (*, *) 'stella_diagnostics::write_free_energy'
+            call set_vpa_weights(.True.)
             call g_to_h(gnew, phi, fphi)
             !> get_free_energy assumes the non adiabtic part h to be passed in
-            call get_free_energy(gnew, phi, free_energy_kxkyz, dissipation_kxkyz, drive_kxkyz, &
-                                 drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz, &
+            call get_free_energy(gnew, phi, free_energy_kxkyz, &
+                                 diss_perp_kxkyz, diss_zed_kxkyz, diss_vpa_kxkyz, &
+                                 drive_kxkyz, drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz, &
                                  part_flux, mom_flux, heat_flux, istep)
             call g_to_h(gnew, phi, -fphi)
+            call set_vpa_weights(.False.)
          end if
       end if
 
@@ -518,7 +526,8 @@ contains
          end if
          if (write_energy_kxkyz) then
             if (debug) write (*, *) 'stella_diagnostics::diagnose_stella::write_energy_kxkyz'
-            if (proc0) call write_energy_kxkyz_nc(nout, free_energy_kxkyz, drive_kxkyz, dissipation_kxkyz, &
+            if (proc0) call write_energy_kxkyz_nc(nout, free_energy_kxkyz, drive_kxkyz, &
+                                                  diss_perp_kxkyz, diss_zed_kxkyz, diss_vpa_kxkyz, &
                                                   drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz)
          end if
          if (write_gvmus) then
@@ -545,7 +554,7 @@ contains
 
       deallocate (part_flux, mom_flux, heat_flux)
       deallocate (pflx_kxkyz, vflx_kxkyz, qflx_kxkyz)
-      deallocate (free_energy_kxkyz, dissipation_kxkyz, drive_kxkyz)
+      deallocate (free_energy_kxkyz, diss_perp_kxkyz, diss_zed_kxkyz, diss_vpa_kxkyz, drive_kxkyz)
       deallocate (phi_out)
       if (allocated(part_flux_x)) deallocate (part_flux_x)
       if (allocated(mom_flux_x)) deallocate (mom_flux_x)
@@ -560,14 +569,14 @@ contains
 
    !> Calculate free energy, the drive term and the dissipation
    !>
-   subroutine get_free_energy(g, phi, free_energy_kxkyz, dissipation_kxkyz, drive_kxkyz, &
-                              drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz, &
+   subroutine get_free_energy(g, phi, free_energy_kxkyz, diss_perp_kxkyz, diss_zed_kxkyz, diss_vpa_kxkyz, &
+                              drive_kxkyz, drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz, &
                               part_flux, mom_flux, heat_flux, istep)
 
       use mp, only: proc0, barrier
       use constants, only: zi, pi
       use dist_fn_arrays, only: g0, g1, g2, g3
-      use dist_fn_arrays, only: gvmu, wstar
+      use dist_fn_arrays, only: wstar
       use stella_layouts, only: vmu_lo
       use stella_layouts, only: iv_idx, imu_idx, is_idx
       use species, only: spec, nspec
@@ -582,14 +591,15 @@ contains
       use gyro_averages, only: aj0x, gyro_average
       use volume_averages, only: mode_fac
       use stella_time, only: code_time, code_dt
-      use stella_geometry, only: dVolume, bmag, b_dot_grad_z
+      use stella_geometry, only: dVolume, bmag, b_dot_grad_z, dbdzed
       use physics_flags, only: nonlinear
       use dist_fn_arrays, only: kperp2
-      use hyper, only: D_hyper, k2max
+      use hyper, only: D_hyper, k2max, advance_hyper_zed, advance_hyper_vpa
+      use hyper, only: hyp_vpa, hyp_zed
       use file_utils, only: close_output_file
 
       use redistribute, only: gather, scatter
-      use dist_redistribute, only: kxkyz2vmu, kxyz2vmu
+      use dist_redistribute, only: kxkyz2vmu
       use stella_layouts, only: kxyz_lo, kxkyz_lo, vmu_lo
       use stella_layouts, only: iz_idx, iky_idx, ikx_idx
 
@@ -601,12 +611,17 @@ contains
       use mirror_terms, only: advance_mirror_explicit
       use mirror_terms, only: get_dgdvpa_explicit, get_dgdvpa_centered
 
+      use g_tofrom_h, only: g_to_h
+
       implicit none
 
       complex, dimension(:, :, -nzgrid:, :, vmu_lo%llim_proc:), intent(inout) :: g
       complex, dimension(:, :, -nzgrid:, :), intent(in) :: phi
       real, dimension(:, :, -nzgrid:, :, :), intent(out) :: free_energy_kxkyz
-      real, dimension(:, :, -nzgrid:, :, :), intent(out) :: dissipation_kxkyz
+      real, dimension(:, :, -nzgrid:, :, :), intent(out) :: diss_perp_kxkyz
+      real, dimension(:, :, -nzgrid:, :, :), intent(out) :: diss_zed_kxkyz
+      real, dimension(:, :, -nzgrid:, :, :), intent(out) :: diss_vpa_kxkyz
+
       real, dimension(:, :, -nzgrid:, :, :), intent(out) :: drive_kxkyz
       real, dimension(:, :, -nzgrid:, :, :), intent(out) :: drifts_kxkyz
       real, dimension(:, :, -nzgrid:, :, :), intent(out) :: streaming_kxkyz
@@ -619,7 +634,10 @@ contains
 
       integer :: ivmu, imu, iv, iz, it, is, ia, ikx, iky, ikxkyz
       real :: energy_sum
-      real :: dissipation_sum
+      real :: diss_perp_sum
+      real :: diss_zed_sum
+      real :: diss_vpa_sum
+
       real :: drive_sum
       real :: drive_sum_via_flux
       real :: drive_sum2
@@ -632,7 +650,7 @@ contains
       real :: test1, test2
       real, dimension(:), allocatable :: weights
       complex, dimension(:), allocatable :: energy_total
-      complex, dimension(:), allocatable :: drive_term, dissipation_term
+      complex, dimension(:), allocatable :: drive_term, diss_perp, diss_zed, diss_vpa
       complex, dimension(:), allocatable :: drifts_term, streaming_term, nonlinear_term, mirror_term
       complex, dimension(:), allocatable :: drive_via_flux
       complex, dimension(:, :, :, :, :), allocatable :: velocity_integral1
@@ -645,7 +663,10 @@ contains
       restart_time_step = .false.
 
       free_energy_kxkyz = 0.
-      dissipation_kxkyz = 0.
+      diss_perp_kxkyz = 0.
+      diss_zed_kxkyz = 0.
+      diss_vpa_kxkyz = 0.
+
       drive_kxkyz = 0.
       drifts_kxkyz = 0.
       streaming_kxkyz = 0.
@@ -653,17 +674,16 @@ contains
       nonlinear_kxkyz = 0.
 
       energy_sum = 0.
-      dissipation_sum = 0.
+      diss_perp_sum = 0.
+      diss_zed_sum = 0.
+      diss_vpa_sum = 0.
+
       drive_sum = 0.
-      drive_sum2 = 0.
       drive_sum_via_flux = 0.
       drifts_sum = 0.
       streaming_sum = 0.
       nonlinear_sum = 0.
       mirror_sum = 0.
-
-      test1 = 0.
-      test2 = 0.
 
       ia = 1
       !TODO check normalization
@@ -676,7 +696,9 @@ contains
       allocate (weights(nspec))
       allocate (energy_total(nspec))
       allocate (drive_term(nspec))
-      allocate (dissipation_term(nspec))
+      allocate (diss_perp(nspec))
+      allocate (diss_zed(nspec))
+      allocate (diss_vpa(nspec))
 
       allocate (drive_via_flux(nspec))
       allocate (drifts_term(nspec))
@@ -696,6 +718,7 @@ contains
       ! get electrostatic contributions to energy terms
       if (fphi > epsilon(0.0)) then
          ia = 1
+
          ! Calculate free energy and dissipation
          do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
             iv = iv_idx(vmu_lo, ivmu)
@@ -711,28 +734,96 @@ contains
          call integrate_vmu(g0, weights, velocity_integral1)
          if (proc0) then
             energy_total = 0
-            dissipation_term = 0
+            diss_perp = 0
             do is = 1, nspec
                do it = 1, ntubes
                   do iz = -nzgrid, nzgrid
                      do ikx = 1, nakx
                free_energy_kxkyz(:, ikx, iz, it, is) = 0.5 * mode_fac * (real(spec(is)%dens * spec(is)%temp * velocity_integral1(:, ikx, iz, it, is) &
                                                   - spec(is)%dens * spec(is)%z**2 / spec(is)%temp * phi(:, ikx, iz, it) * CONJG(phi(:, ikx, iz, it))))
-                        dissipation_kxkyz(:, ikx, iz, it, is) = 0.5 * mode_fac * (real(D_hyper * (kperp2(:, ikx, ia, iz) / k2max)**2 &
+                        diss_perp_kxkyz(:, ikx, iz, it, is) = 0.5 * mode_fac * (real(D_hyper * (kperp2(:, ikx, ia, iz) / k2max)**2 &
                                                   * spec(is)%dens * spec(is)%z**2 / spec(is)%temp * phi(:, ikx, iz, it) * CONJG(phi(:, ikx, iz, it)) &
-                                                                                       - D_hyper * (kperp2(:, ikx, ia, iz) / k2max)**2 &
+                                                                                     - D_hyper * (kperp2(:, ikx, ia, iz) / k2max)**2 &
                                                                             * spec(is)%dens * spec(is)%temp * velocity_integral1(:, ikx, iz, it, is)))
                         energy_total(is) = energy_total(is) + sum(free_energy_kxkyz(:, ikx, iz, it, is) * dVolume(ia, ikx, iz))
-                        dissipation_term(is) = dissipation_term(is) + sum(dissipation_kxkyz(:, ikx, iz, it, is) * dVolume(ia, ikx, iz))
+                        diss_perp(is) = diss_perp(is) + sum(diss_perp_kxkyz(:, ikx, iz, it, is) * dVolume(ia, ikx, iz))
                         volume = volume + dVolume(ia, ikx, iz)
                      end do
                   end do
                end do
                energy_total(is) = energy_total(is) / volume
-               dissipation_term(is) = dissipation_term(is) / volume
+               diss_perp(is) = diss_perp(is) / volume
                energy_sum = energy_sum + energy_total(is)
-               dissipation_sum = dissipation_sum + dissipation_term(is)
+               diss_perp_sum = diss_perp_sum + diss_perp(is)
             end do
+         end if
+         !Calculate hyper_z
+         if (hyp_zed) then
+            g0 = g
+            call g_to_h(g0, phi, -fphi)
+            call advance_hyper_zed(g0, g3)
+            do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
+               iv = iv_idx(vmu_lo, ivmu)
+               imu = imu_idx(vmu_lo, ivmu)
+               is = is_idx(vmu_lo, ivmu)
+               do it = 1, ntubes
+                  do iz = -nzgrid, nzgrid
+                     g0(:, :, iz, it, ivmu) = g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
+                                              1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is)) * 1 / code_dt
+                  end do
+               end do
+            end do
+            call integrate_vmu(g0, weights, velocity_integral1)
+            if (proc0) then
+               diss_zed = 0
+               do is = 1, nspec
+                  do it = 1, ntubes
+                     do iz = -nzgrid, nzgrid
+                        do ikx = 1, nakx
+                  diss_zed_kxkyz(:, ikx, iz, it, is) = 0.5 * mode_fac * (real(spec(is)%dens * spec(is)%temp * velocity_integral1(:, ikx, iz, it, is)))
+                           diss_zed(is) = diss_zed(is) + sum(diss_zed_kxkyz(:, ikx, iz, it, is) * dVolume(ia, ikx, iz))
+                           volume = volume + dVolume(ia, ikx, iz)
+                        end do
+                     end do
+                  end do
+                  diss_zed(is) = diss_zed(is) / volume
+                  diss_zed_sum = diss_zed_sum + diss_zed(is)
+               end do
+            end if
+         end if
+         !Calculate hyper_vpa
+         if (hyp_vpa) then
+            g0 = g
+            call g_to_h(g0, phi, -fphi)
+            call advance_hyper_vpa(g0, g3)
+            do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
+               iv = iv_idx(vmu_lo, ivmu)
+               imu = imu_idx(vmu_lo, ivmu)
+               is = is_idx(vmu_lo, ivmu)
+               do it = 1, ntubes
+                  do iz = -nzgrid, nzgrid
+                     g0(:, :, iz, it, ivmu) = g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
+                                              1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is)) * 1 / code_dt
+                  end do
+               end do
+            end do
+            call integrate_vmu(g0, weights, velocity_integral1)
+            if (proc0) then
+               diss_vpa = 0
+               do is = 1, nspec
+                  do it = 1, ntubes
+                     do iz = -nzgrid, nzgrid
+                        do ikx = 1, nakx
+                  diss_vpa_kxkyz(:, ikx, iz, it, is) = 0.5 * mode_fac * (real(spec(is)%dens * spec(is)%temp * velocity_integral1(:, ikx, iz, it, is)))
+                           diss_vpa(is) = diss_vpa(is) + sum(diss_vpa_kxkyz(:, ikx, iz, it, is) * dVolume(ia, ikx, iz))
+                           volume = volume + dVolume(ia, ikx, iz)
+                        end do
+                     end do
+                  end do
+                  diss_vpa(is) = diss_vpa(is) / volume
+                  diss_vpa_sum = diss_vpa_sum + diss_vpa(is)
+               end do
+            end if
          end if
 
          !Calculate drive
@@ -771,7 +862,6 @@ contains
                drive_sum = drive_sum + drive_term(is)
             end do
          end if
-
          !Calculate drifts
          g3 = 0
          call advance_wdriftx_explicit(g, phi_zero, g3)
@@ -829,9 +919,9 @@ contains
             call add_stream_term(g2(:, :, :, :, ivmu), ivmu, g3(:, :, :, :, ivmu))
             do it = 1, ntubes
                do iz = -nzgrid, nzgrid
-                  g3(:, :, iz, it, ivmu) = code_dt * b_dot_grad_z(ia, iz) * vpa(iv) * g2(:, :, iz, it, ivmu)
+                  g3(:, :, iz, it, ivmu) = -b_dot_grad_z(ia, iz) * vpa(iv) * g2(:, :, iz, it, ivmu)
                   g0(:, :, iz, it, ivmu) = g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
-                                           1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is)) * 1 / code_dt
+                                           1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is))
                end do
             end do
          end do
@@ -897,7 +987,7 @@ contains
          !   end do
          !end do
          call gather(kxkyz2vmu, g2v, g2)
-         call add_mirror_term(g2, g3)
+         !call add_mirror_term(g2, g3)
 
          do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
             iv = iv_idx(vmu_lo, ivmu)
@@ -905,8 +995,9 @@ contains
             is = is_idx(vmu_lo, ivmu)
             do it = 1, ntubes
                do iz = -nzgrid, nzgrid
-                  g0(:, :, iz, it, ivmu) = -g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
-                                           1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is)) * 1 / code_dt
+                  g3(:, :, iz, it, ivmu) = b_dot_grad_z(ia, iz) * mu(imu) * dbdzed(ia, iz) * g2(:, :, iz, it, ivmu)
+                  g0(:, :, iz, it, ivmu) = g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
+                                           1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is))
                end do
             end do
          end do
@@ -971,7 +1062,7 @@ contains
       end if
 
       if (proc0) then
-      write (energy_unit, '(9e20.8E3)') code_time, energy_sum, dissipation_sum, drive_sum, drive_sum_via_flux, drifts_sum, streaming_sum, mirror_sum &
+      write (energy_unit, '(11e20.8E3)') code_time, energy_sum, diss_perp_sum, diss_zed_sum, diss_vpa_sum, drive_sum, drive_sum_via_flux, drifts_sum, streaming_sum, mirror_sum &
             , nonlinear_sum
          call flush (energy_unit)
       end if
@@ -979,7 +1070,7 @@ contains
       if (allocated(weights)) deallocate (weights)
       if (allocated(energy_total)) deallocate (energy_total)
       if (allocated(drive_term)) deallocate (drive_term)
-      if (allocated(dissipation_term)) deallocate (dissipation_term)
+      if (allocated(diss_perp)) deallocate (diss_perp)
       if (allocated(drifts_term)) deallocate (drifts_term)
       if (allocated(streaming_term)) deallocate (streaming_term)
       if (allocated(mirror_term)) deallocate (mirror_term)

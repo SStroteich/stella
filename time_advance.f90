@@ -1539,9 +1539,6 @@ contains
       use flow_shear, only: advance_parallel_flow_shear
       use multibox, only: include_multibox_krook, add_multibox_krook
 
-
-
-
       implicit none
 
       complex, dimension(:, :, -nzgrid:, :, vmu_lo%llim_proc:), intent(in) :: gin
@@ -1648,8 +1645,6 @@ contains
          if (source_option_switch == source_option_krook) call add_krook_operator(gin, rhs)
 
          if (include_multibox_krook) call add_multibox_krook(gin, rhs)
-
-
 
       end if
 

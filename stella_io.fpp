@@ -506,11 +506,11 @@ contains
       call neasyf_write(ncid, "diss_zed_kxkyz", diss_zed_kxkyz, &
                         dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
                         start=[1, 1, 1, 1, 1, nout], &
-                        long_name="Dissipation term in z-direction")                        
+                        long_name="Dissipation term in z-direction")
       call neasyf_write(ncid, "diss_vpa_kxkyz", diss_vpa_kxkyz, &
                         dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
                         start=[1, 1, 1, 1, 1, nout], &
-                        long_name="Dissipation term in vpa-direction")                                                
+                        long_name="Dissipation term in vpa-direction")
       call neasyf_write(ncid, 'drifts_kxkyz', drifts_kxkyz, &
                         dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
                         start=[1, 1, 1, 1, 1, nout], &

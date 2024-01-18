@@ -893,7 +893,7 @@ contains
             ! for hyper-dissipation, need to be in k-alpha space
             if (hyp_zed) call advance_hyper_zed(gnew)
             if (hyp_vpa) call advance_hyper_vpa(gnew)
-         end if         
+         end if
 
          ! If the time step has not been restarted, the time advance was succesfull
          ! Otherwise, discard changes to gnew and start the time step again, fields

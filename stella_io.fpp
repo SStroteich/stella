@@ -671,7 +671,7 @@ contains
       call neasyf_write(file_id, "gds22", gds22, dim_names=flux_surface_dim)
       call neasyf_write(file_id, "grho", grho, dim_names=flux_surface_dim)
       call neasyf_write(file_id, "jacob", jacob, dim_names=flux_surface_dim)
-      call neasyf_write(file_id, "dVolume", dVolume, dim_names= [character(len=5) :: "alpha", "kx", "zed"])
+      call neasyf_write(file_id, "dVolume", dVolume, dim_names=[character(len=5) :: "alpha", "kx", "zed"])
       call neasyf_write(file_id, "djacdrho", djacdrho, dim_names=flux_surface_dim)
       call neasyf_write(file_id, "beta", beta, &
                         long_name="Reference beta", units="2.mu0.nref.Tref/B_a**2")

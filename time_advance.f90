@@ -690,12 +690,12 @@ contains
          cfl_dt_linear = min(cfl_dt_linear, cfl_dt_mirror)
       end if
 
-      if(hyper_dissipation) then
-         if(hyp_zed) then
+      if (hyper_dissipation) then
+         if (hyp_zed) then
             cfl_dt_hyp_zed = 16 / D_zed
             cfl_dt_linear = min(cfl_dt_linear, cfl_dt_hyp_zed)
          end if
-         if(hyp_vpa) then 
+         if (hyp_vpa) then
             cfl_dt_hyp_vpa = 16 / D_vpa
             cfl_dt_linear = min(cfl_dt_linear, cfl_dt_hyp_vpa)
          end if
@@ -744,8 +744,8 @@ contains
          if (.not. drifts_implicit) write (*, '(A12,ES12.4)') '   wdrifty: ', cfl_dt_wdrifty
          if (.not. stream_implicit) write (*, '(A12,ES12.4)') '   stream: ', cfl_dt_stream
          if (.not. mirror_implicit) write (*, '(A12,ES12.4)') '   mirror: ', cfl_dt_mirror
-         if (hyper_dissipation .and. hyp_zed) write(*, '(A12,ES12.4)') '   hyp_zed: ', cfl_dt_hyp_zed
-         if (hyper_dissipation .and. hyp_vpa) write(*, '(A12,ES12.4)') '   hyp_vpa: ', cfl_dt_hyp_vpa
+         if (hyper_dissipation .and. hyp_zed) write (*, '(A12,ES12.4)') '   hyp_zed: ', cfl_dt_hyp_zed
+         if (hyper_dissipation .and. hyp_vpa) write (*, '(A12,ES12.4)') '   hyp_vpa: ', cfl_dt_hyp_vpa
          write (*, '(A12,ES12.4)') '   total: ', cfl_dt_linear
          write (*, *)
       end if
@@ -851,8 +851,6 @@ contains
       use mp, only: proc0, broadcast
       use run_parameters, only: fphi
       use g_tofrom_h, only: g_to_h
-
-
 
       implicit none
 

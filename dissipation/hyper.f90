@@ -12,7 +12,6 @@ module hyper
 
    public :: k2max
 
-
    private
 
    logical :: use_physical_ksqr, scale_to_outboard
@@ -116,7 +115,6 @@ contains
          end if
       end if
       if (k2max < epsilon(0.0)) k2max = 1.0
-      
 
    end subroutine init_hyper
 

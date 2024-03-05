@@ -9,7 +9,9 @@ module hyper
    public :: advance_hyper_zed
    public :: D_hyper, D_zed, D_vpa
    public :: hyp_vpa, hyp_zed
+
    public :: k2max
+
 
    private
 
@@ -18,6 +20,7 @@ module hyper
    logical :: hyp_vpa, hyp_zed
    real :: tfac
    real :: k2max
+
    interface advance_hyper_zed
       module procedure advance_hyper_zed_direct
       module procedure advance_hyper_zed_diff
@@ -113,6 +116,7 @@ contains
          end if
       end if
       if (k2max < epsilon(0.0)) k2max = 1.0
+      
 
    end subroutine init_hyper
 
@@ -171,7 +175,7 @@ contains
       use stella_layouts, only: vmu_lo, kxkyz_lo
       use kt_grids, only: naky
       use redistribute, only: gather, scatter
-      use dist_fn_arrays, only: g1, G0
+      use dist_fn_arrays, only: g0, g1
       use dist_redistribute, only: kxkyz2vmu
       use vpamu_grids, only: nmu, nvpa, dvpa
 
@@ -215,7 +219,7 @@ contains
       use stella_layouts, only: vmu_lo, kxkyz_lo
       use kt_grids, only: naky
       use redistribute, only: gather, scatter
-      use dist_fn_arrays, only: g1, G0
+      use dist_fn_arrays, only: g0, g1
       use dist_redistribute, only: kxkyz2vmu
       use vpamu_grids, only: nmu, nvpa, dvpa
 
@@ -299,7 +303,7 @@ contains
       use dist_fn_arrays, only: kperp2
       use kt_grids, only: naky, nakx
       use redistribute, only: gather, scatter
-      use dist_fn_arrays, only: g1, g0
+      use dist_fn_arrays, only: g0, g1
       use dist_redistribute, only: kxkyz2vmu
       use stella_layouts, only: kxkyz_lo
 
@@ -353,7 +357,7 @@ contains
       use dist_fn_arrays, only: kperp2
       use kt_grids, only: naky, nakx
       use redistribute, only: gather, scatter
-      use dist_fn_arrays, only: g1, g0
+      use dist_fn_arrays, only: g0, g1
       use dist_redistribute, only: kxkyz2vmu
       use stella_layouts, only: kxkyz_lo
 

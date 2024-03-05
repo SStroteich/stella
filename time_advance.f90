@@ -639,11 +639,15 @@ contains
       use file_utils, only: runtype_option_switch, runtype_multibox
       use dissipation, only: include_collisions, collisions_implicit
       use dissipation, only: cfl_dt_vpadiff, cfl_dt_mudiff
+      use hyper, only: D_zed, D_vpa
+      use hyper, only: hyp_zed, hyp_vpa
+      use dissipation, only: hyper_dissipation
 
       implicit none
 
       real :: cfl_dt_mirror, cfl_dt_stream, cfl_dt_shear
       real :: cfl_dt_wdriftx, cfl_dt_wdrifty
+      real :: cfl_dt_hyp_zed, cfl_dt_hyp_vpa
       real :: zero
       real :: wdriftx_max, wdrifty_max
 
@@ -684,6 +688,17 @@ contains
          ! NB: mirror has code_dt built-in, which accounts for code_dt factor here
          cfl_dt_mirror = abs(code_dt) * dvpa / max(maxval(abs(mirror)), zero)
          cfl_dt_linear = min(cfl_dt_linear, cfl_dt_mirror)
+      end if
+
+      if(hyper_dissipation) then
+         if(hyp_zed) then
+            cfl_dt_hyp_zed = 16 / D_zed
+            cfl_dt_linear = min(cfl_dt_linear, cfl_dt_hyp_zed)
+         end if
+         if(hyp_vpa) then 
+            cfl_dt_hyp_vpa = 16 / D_vpa
+            cfl_dt_linear = min(cfl_dt_linear, cfl_dt_hyp_vpa)
+         end if
       end if
 
       if (radial_variation) then
@@ -729,6 +744,8 @@ contains
          if (.not. drifts_implicit) write (*, '(A12,ES12.4)') '   wdrifty: ', cfl_dt_wdrifty
          if (.not. stream_implicit) write (*, '(A12,ES12.4)') '   stream: ', cfl_dt_stream
          if (.not. mirror_implicit) write (*, '(A12,ES12.4)') '   mirror: ', cfl_dt_mirror
+         if (hyper_dissipation .and. hyp_zed) write(*, '(A12,ES12.4)') '   hyp_zed: ', cfl_dt_hyp_zed
+         if (hyper_dissipation .and. hyp_vpa) write(*, '(A12,ES12.4)') '   hyp_vpa: ', cfl_dt_hyp_vpa
          write (*, '(A12,ES12.4)') '   total: ', cfl_dt_linear
          write (*, *)
       end if
@@ -832,6 +849,10 @@ contains
       use hyper, only: hyp_zed, hyp_vpa
       use dissipation, only: hyper_dissipation
       use mp, only: proc0, broadcast
+      use run_parameters, only: fphi
+      use g_tofrom_h, only: g_to_h
+
+
 
       implicit none
 
@@ -891,8 +912,10 @@ contains
          end if
          if (hyper_dissipation) then
             ! for hyper-dissipation, need to be in k-alpha space
+            call g_to_h(gnew, phi, +fphi)
             if (hyp_zed) call advance_hyper_zed(gnew)
             if (hyp_vpa) call advance_hyper_vpa(gnew)
+            call g_to_h(gnew, phi, -fphi)
          end if
 
          ! If the time step has not been restarted, the time advance was succesfull

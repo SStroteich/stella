@@ -221,9 +221,6 @@ contains
 
       use file_utils, only: open_output_file, close_output_file
       use species, only: nspec
-      use stella_geometry, only: dVolume
-      use zgrid, only: nzgrid
-      use kt_grids, only: nakx
 
       implicit none
 
@@ -231,7 +228,6 @@ contains
       character(3) :: nspec_str
       character(100) :: str
       logical :: overwrite
-      integer :: iz, ikx
 
       ! Do not overwrite, but append files, when we restart the simulation.
       overwrite = .not. restart

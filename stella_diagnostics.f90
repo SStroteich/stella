@@ -269,15 +269,6 @@ contains
                'drifts', 'streaming', 'mirror', 'nonlinearity'
          end if
       end if
-      call open_output_file(test_unit, '.test', overwrite)
-      write (test_unit, *) 'iz', 'ikx', 'dVolume'
-      if (.not. restart) then
-         do iz = -nzgrid, nzgrid
-            do ikx = 1, nakx
-               write (test_unit, *) iz, ikx, dVolume(1, ikx, iz)
-            end do
-         end do
-      end if
 
       call close_output_file(test_unit)
 

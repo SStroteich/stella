@@ -137,6 +137,7 @@ contains
       if (proc0) call get_nout(tstart, nout)
       call broadcast(nout)
 
+
    end subroutine init_stella_diagnostics
 
    !> Read the diagnostic input parameters from the input file
@@ -219,8 +220,11 @@ contains
    !> When restarting a simulation, append the old files.
    subroutine open_loop_ascii_files(restart)
 
-      use file_utils, only: open_output_file
+      use file_utils, only: open_output_file,close_output_file
       use species, only: nspec
+      use stella_geometry, only: dVolume
+      use zgrid, only: nzgrid
+      use kt_grids, only: nakx
 
       implicit none
 
@@ -228,6 +232,7 @@ contains
       character(3) :: nspec_str
       character(100) :: str
       logical :: overwrite
+      integer :: iz, ikx
 
       ! Do not overwrite, but append files, when we restart the simulation.
       overwrite = .not. restart
@@ -265,7 +270,17 @@ contains
                'drifts', 'streaming', 'mirror', 'nonlinearity'
          end if
       end if
-      !call open_output_file(test_unit, '.test', overwrite)
+      call open_output_file(test_unit, '.test', overwrite)
+      write(test_unit, *) 'iz', 'ikx', 'dVolume'
+      if (.not. restart) then
+         do iz = -nzgrid, nzgrid
+            do ikx = 1, nakx
+                  write(test_unit, *) iz, ikx, dVolume(1,ikx,iz)
+            end do
+         end do
+      end if
+
+      call close_output_file(test_unit)
 
    end subroutine open_loop_ascii_files
 
@@ -567,6 +582,78 @@ contains
 
    end subroutine diagnose_stella
 
+
+
+   !it takes input values of g, phi, factor_spec and returns sum_spec and the array 
+   subroutine get_one_energy_term(g,term,factor_spec,sum_spec,sum_total,term_kxkyz)
+      use mp, only: proc0
+      use dist_fn_arrays, only: g0
+      use stella_layouts, only: vmu_lo
+      use stella_layouts, only: iv_idx, imu_idx, is_idx
+      use species, only: nspec
+      use zgrid, only: nzgrid,ntubes
+      use vpamu_grids, only: maxwell_vpa, maxwell_mu, maxwell_fac
+      use vpamu_grids, only: integrate_vmu
+      use volume_averages, only: mode_fac
+      use kt_grids, only: naky, nakx
+      use stella_geometry, only: dVolume
+
+      implicit none
+      complex, dimension(:, :, -nzgrid:, :, vmu_lo%llim_proc:), intent(in) :: g, term
+
+      real, dimension(nspec), intent(in) :: factor_spec
+      complex, dimension(nspec), intent(out) :: sum_spec
+      real, intent(out) :: sum_total
+      real, dimension(:, :, -nzgrid:, :, :), intent(out) :: term_kxkyz
+
+      real :: volume_total
+      integer :: ivmu, imu, iv, iz, it, is, ia, ikx
+      complex, dimension(:, :, :, :, :), allocatable :: velocity_integral1
+      real, dimension(:), allocatable :: weights
+
+      
+      allocate (velocity_integral1(naky, nakx, -nzgrid:nzgrid, ntubes, nspec))
+      allocate (weights(nspec))
+      weights = 1.
+      sum_spec = 0.
+      term_kxkyz = 0.
+      velocity_integral1 = 0.
+      sum_total = 0.
+
+      ia = 1
+      do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
+         iv = iv_idx(vmu_lo, ivmu)
+         imu = imu_idx(vmu_lo, ivmu)
+         is = is_idx(vmu_lo, ivmu)
+         do it = 1, ntubes
+            do iz = -nzgrid, nzgrid
+               g0(:, :, iz, it, ivmu) = term(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
+                                       1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is))
+            end do
+         end do
+      end do
+      call integrate_vmu(g0, weights, velocity_integral1)
+      if (proc0) then
+         do is = 1, nspec
+            !write(*,*) '1. velocity_integral1', sum(velocity_integral1(:, :,:,:, is))
+            volume_total = 0.
+            do it = 1, ntubes
+               do iz = -nzgrid, nzgrid
+                  do ikx = 1, nakx
+                     term_kxkyz(:, ikx, iz, it, is) = 0.5 * mode_fac(:) * (real(factor_spec(is) * velocity_integral1(:, ikx, iz, it, is)))
+                     sum_spec(is) = sum_spec(is) + sum(term_kxkyz(:, ikx, iz, it, is) * dVolume(ia, ikx, iz))
+                  end do
+                  volume_total = volume_total + dVolume(ia,ikx,iz)
+               end do
+            end do
+            sum_spec(is) = sum_spec(is) / volume_total
+            sum_total = sum_total + sum_spec(is)
+         end do
+      end if
+      deallocate (velocity_integral1)
+      deallocate (weights)
+   end subroutine get_one_energy_term
+
    !> Calculate free energy, the drive term and the dissipation
    !>
    subroutine get_free_energy(g, phi, free_energy_kxkyz, diss_perp_kxkyz, diss_zed_kxkyz, diss_vpa_kxkyz, &
@@ -586,7 +673,7 @@ contains
       use vpamu_grids, only: integrate_vmu
       use vpamu_grids, only: maxwell_vpa, maxwell_mu, maxwell_fac
       use run_parameters, only: fphi
-      use kt_grids, only: aky
+      use kt_grids, only: aky,akx
       use kt_grids, only: naky, nakx
       use gyro_averages, only: aj0x, gyro_average
       use volume_averages, only: mode_fac
@@ -644,10 +731,10 @@ contains
       real :: streaming_sum
       real :: nonlinear_sum
       real :: mirror_sum
-      real :: flx_norm
       real :: volume
       real :: test1, test2
       real, dimension(:), allocatable :: weights
+      real, dimension(:), allocatable :: factor_spec
       complex, dimension(:), allocatable :: energy_total
       complex, dimension(:), allocatable :: drive_term, diss_perp, diss_zed, diss_vpa
       complex, dimension(:), allocatable :: drifts_term, streaming_term, nonlinear_term, mirror_term
@@ -655,7 +742,7 @@ contains
       complex, dimension(:, :, :, :, :), allocatable :: velocity_integral1
       complex, dimension(:, :, :, :), allocatable :: phi_zero
 
-      complex, dimension(:, :, :), allocatable :: g0v, g1v, g2v
+      complex, dimension(:, :, :), allocatable :: g0v
 
       logical :: restart_time_step
       logical :: use_advance_wstar = .true.
@@ -689,10 +776,10 @@ contains
       allocate (velocity_integral1(naky, nakx, -nzgrid:nzgrid, ntubes, nspec))
 
       allocate (g0v(nvpa, nmu, kxkyz_lo%llim_proc:kxkyz_lo%ulim_alloc))
-      allocate (g1v(nvpa, nmu, kxkyz_lo%llim_proc:kxkyz_lo%ulim_alloc))
-      allocate (g2v(nvpa, nmu, kxkyz_lo%llim_proc:kxkyz_lo%ulim_alloc))
 
       allocate (weights(nspec))
+      allocate (factor_spec(nspec))
+
       allocate (energy_total(nspec))
       allocate (drive_term(nspec))
       allocate (diss_perp(nspec))
@@ -712,74 +799,73 @@ contains
       g0 = 0.
       g1 = 0.
       g2 = 0.
-      g3 = 0.
       ! FLAG - electrostatic for now
       ! get electrostatic contributions to energy terms
       if (fphi > epsilon(0.0)) then
          ia = 1
 
-         ! Calculate free energy and dissipation
+         ! Calculate free energy 
+         g1 = g
+         call g_to_h(g1, phi, -fphi)
+         do is = 1, nspec
+            factor_spec(is) = spec(is)%dens * spec(is)%temp
+         end do
+         call get_one_energy_term(g,g1,factor_spec,energy_total,energy_sum,free_energy_kxkyz)
+
+         ! Calculate dissipation perpendicular
+         g1 = g
+         call g_to_h(g1, phi, -fphi)
+         do is = 1, nspec
+            factor_spec(is) = - D_hyper * spec(is)%dens * spec(is)%temp
+         end do
          do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
             iv = iv_idx(vmu_lo, ivmu)
             imu = imu_idx(vmu_lo, ivmu)
             is = is_idx(vmu_lo, ivmu)
             do it = 1, ntubes
                do iz = -nzgrid, nzgrid
-                  g0(:, :, iz, it, ivmu) = g(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
-                                           1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is))
+                  g1(:, :, iz, it, ivmu) = g1(:, :, iz, it, ivmu) * (kperp2(:, :, ia, iz) / k2max)**2 
                end do
             end do
          end do
-         call integrate_vmu(g0, weights, velocity_integral1)
-         if (proc0) then
-            energy_total = 0
-            diss_perp = 0
-            do is = 1, nspec
-               do it = 1, ntubes
-                  do iz = -nzgrid, nzgrid
-                     do ikx = 1, nakx
-               free_energy_kxkyz(:, ikx, iz, it, is) = 0.5 * mode_fac * (real(spec(is)%dens * spec(is)%temp * velocity_integral1(:, ikx, iz, it, is) &
-                                                  - spec(is)%dens * spec(is)%z**2 / spec(is)%temp * phi(:, ikx, iz, it) * CONJG(phi(:, ikx, iz, it))))
-                        diss_perp_kxkyz(:, ikx, iz, it, is) = 0.5 * mode_fac * (real(D_hyper * (kperp2(:, ikx, ia, iz) / k2max)**2 &
-                                                  * spec(is)%dens * spec(is)%z**2 / spec(is)%temp * phi(:, ikx, iz, it) * CONJG(phi(:, ikx, iz, it)) &
-                                                                                     - D_hyper * (kperp2(:, ikx, ia, iz) / k2max)**2 &
-                                                                            * spec(is)%dens * spec(is)%temp * velocity_integral1(:, ikx, iz, it, is)))
-                        energy_total(is) = energy_total(is) + sum(free_energy_kxkyz(:, ikx, iz, it, is) * dVolume(ia, ikx, iz))
-                        diss_perp(is) = diss_perp(is) + sum(diss_perp_kxkyz(:, ikx, iz, it, is) * dVolume(ia, ikx, iz))
-                        volume = volume + dVolume(ia, ikx, iz)
-                     end do
-                  end do
-               end do
-               energy_total(is) = energy_total(is) / volume
-               diss_perp(is) = diss_perp(is) / volume
-               energy_sum = energy_sum + energy_total(is)
-               diss_perp_sum = diss_perp_sum + diss_perp(is)
-            end do
-         end if
-         !Calculate hyper_z
+         call get_one_energy_term(g,g1,factor_spec,diss_perp,diss_perp_sum,diss_perp_kxkyz)
+ 
+         !Calculate hyper_z currently not working
          if (hyp_zed) then
-            g0 = g
-            call g_to_h(g0, phi, -fphi)
-            call advance_hyper_zed(g0, g3)
+            g2 = g
+            g3 = 0
+            call g_to_h(g2, phi, -fphi)
+            if (proc0) write(*,*) 'g2', sum(g2)
+            call advance_hyper_zed(g2, g3)
+            if (proc0) write(*,*) 'g3', sum(g3)
+            g1 = g3 * 1 / code_dt
+            do is = 1, nspec
+               factor_spec(is) = spec(is)%dens * spec(is)%temp
+            end do
+            call get_one_energy_term(g,g1,factor_spec,diss_zed,diss_zed_sum,diss_zed_kxkyz)
+            if (proc0) write(*,*) '1. diss_zed_sum', diss_zed_sum
+            diss_zed_sum = 0
             do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
                iv = iv_idx(vmu_lo, ivmu)
                imu = imu_idx(vmu_lo, ivmu)
                is = is_idx(vmu_lo, ivmu)
                do it = 1, ntubes
                   do iz = -nzgrid, nzgrid
-                     g0(:, :, iz, it, ivmu) = g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
-                                              1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is)) * 1 / code_dt
+                     g1(:, :, iz, it, ivmu) = g1(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
+                                              1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is))
                   end do
                end do
             end do
-            call integrate_vmu(g0, weights, velocity_integral1)
+            call integrate_vmu(g1, weights, velocity_integral1)
             if (proc0) then
                diss_zed = 0
+               volume = 0
                do is = 1, nspec
+                  write(*,*) '2. zed velocity_integral1', sum(velocity_integral1(:, :,:,:, is))
                   do it = 1, ntubes
                      do iz = -nzgrid, nzgrid
                         do ikx = 1, nakx
-                  diss_zed_kxkyz(:, ikx, iz, it, is) = 0.5 * mode_fac * (real(spec(is)%dens * spec(is)%temp * velocity_integral1(:, ikx, iz, it, is)))
+                           diss_zed_kxkyz(:, ikx, iz, it, is) = 0.5 * mode_fac * (real(spec(is)%dens * spec(is)%temp * velocity_integral1(:, ikx, iz, it, is)))
                            diss_zed(is) = diss_zed(is) + sum(diss_zed_kxkyz(:, ikx, iz, it, is) * dVolume(ia, ikx, iz))
                            volume = volume + dVolume(ia, ikx, iz)
                         end do
@@ -788,275 +874,94 @@ contains
                   diss_zed(is) = diss_zed(is) / volume
                   diss_zed_sum = diss_zed_sum + diss_zed(is)
                end do
+               write(*,*) '2. diss_zed_sum', diss_zed_sum
             end if
          end if
-         !Calculate hyper_vpa
+         !Calculate dissipation in the parallel velocity
          if (hyp_vpa) then
-            g0 = g
-            call g_to_h(g0, phi, -fphi)
-            call advance_hyper_vpa(g0, g3)
-            do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
-               iv = iv_idx(vmu_lo, ivmu)
-               imu = imu_idx(vmu_lo, ivmu)
-               is = is_idx(vmu_lo, ivmu)
-               do it = 1, ntubes
-                  do iz = -nzgrid, nzgrid
-                     g0(:, :, iz, it, ivmu) = g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
-                                              1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is)) * 1 / code_dt
-                  end do
-               end do
+            g2 = g
+            g3 = 0
+            call g_to_h(g2, phi, -fphi)
+            call advance_hyper_vpa(g2, g3)
+            g1 = g3 * 1 / code_dt
+            do is = 1, nspec
+               factor_spec(is) = spec(is)%dens * spec(is)%temp
             end do
-            call integrate_vmu(g0, weights, velocity_integral1)
-            if (proc0) then
-               diss_vpa = 0
-               do is = 1, nspec
-                  do it = 1, ntubes
-                     do iz = -nzgrid, nzgrid
-                        do ikx = 1, nakx
-                  diss_vpa_kxkyz(:, ikx, iz, it, is) = 0.5 * mode_fac * (real(spec(is)%dens * spec(is)%temp * velocity_integral1(:, ikx, iz, it, is)))
-                           diss_vpa(is) = diss_vpa(is) + sum(diss_vpa_kxkyz(:, ikx, iz, it, is) * dVolume(ia, ikx, iz))
-                           volume = volume + dVolume(ia, ikx, iz)
-                        end do
-                     end do
-                  end do
-                  diss_vpa(is) = diss_vpa(is) / volume
-                  diss_vpa_sum = diss_vpa_sum + diss_vpa(is)
-               end do
-            end if
+            call get_one_energy_term(g,g1,factor_spec,diss_vpa,diss_vpa_sum,diss_vpa_kxkyz)
          end if
 
          !Calculate drive
-         g3 = 0.
-         call advance_wstar_explicit(phi, g3)
-         do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
-            iv = iv_idx(vmu_lo, ivmu)
-            imu = imu_idx(vmu_lo, ivmu)
-            is = is_idx(vmu_lo, ivmu)
-            do it = 1, ntubes
-               do iz = -nzgrid, nzgrid
-                  g0(:, :, iz, it, ivmu) = g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
-                                           1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is)) * 2 / code_dt
-                  !g0(:, :, iz, it, ivmu) =  g(:, :, iz, it, ivmu) * CONJG(phi(:, :, iz, it)) * aj0x(:, :, iz, ivmu)&
-                  !                  *maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is) * 2/code_dt &
-                  !                  * spread(spread(wstar(ia,iz,ivmu),1,naky),2,nakx)
-               end do
-            end do
+         g1 = 0.
+         call advance_wstar_explicit(phi, g1)
+         g1 = 2 * g1 * 1 / code_dt
+         do is = 1, nspec
+            factor_spec(is) = spec(is)%dens * spec(is)%temp
          end do
-         call integrate_vmu(g0, weights, velocity_integral1)
+         call get_one_energy_term(g,g1,factor_spec,drive_term,drive_sum,drive_kxkyz)
          if (proc0) then
-            drive_term = 0
             do is = 1, nspec
-               do it = 1, ntubes
-                  do iz = -nzgrid, nzgrid
-                     do ikx = 1, nakx
-                     drive_kxkyz(:, ikx, iz, it, is) = 0.5 * mode_fac * (real(spec(is)%dens * spec(is)%temp * velocity_integral1(:, ikx, iz, it, is)))
-                        drive_term(is) = drive_term(is) + sum(drive_kxkyz(:, ikx, iz, it, is) * dVolume(ia, ikx, iz))
-                        volume = volume + dVolume(ia, ikx, iz)
-                     end do
-                  end do
-               end do
                drive_via_flux(is) = (heat_flux(is) - 3 / 2 * part_flux(is)) * spec(is)%tprim + part_flux(is) * spec(is)%fprim
                drive_sum_via_flux = drive_sum_via_flux + drive_via_flux(is)
-               drive_term(is) = drive_term(is) / volume
-               drive_sum = drive_sum + drive_term(is)
             end do
-         end if
+         end if         
+
          !Calculate drifts
-         g3 = 0
-         call advance_wdriftx_explicit(g, phi_zero, g3)
-         call advance_wdrifty_explicit(g, phi_zero, g3)
-         do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
-            iv = iv_idx(vmu_lo, ivmu)
-            imu = imu_idx(vmu_lo, ivmu)
-            is = is_idx(vmu_lo, ivmu)
-            do it = 1, ntubes
-               do iz = -nzgrid, nzgrid
-                  g0(:, :, iz, it, ivmu) = g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
-                                           1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is)) * 1 / code_dt
-               end do
-            end do
+         g1 = 0
+         call advance_wdriftx_explicit(g, phi_zero, g1)
+         call advance_wdrifty_explicit(g, phi_zero, g1)
+         do is = 1, nspec
+            factor_spec(is) = spec(is)%dens * spec(is)%temp
          end do
-         call integrate_vmu(g0, weights, velocity_integral1)
-         if (proc0) then
-            drifts_term = 0
-            do is = 1, nspec
-               do it = 1, ntubes
-                  do iz = -nzgrid, nzgrid
-                     do ikx = 1, nakx
-                    drifts_kxkyz(:, ikx, iz, it, is) = 0.5 * mode_fac * (real(spec(is)%dens * spec(is)%temp * velocity_integral1(:, ikx, iz, it, is)))
-                        drifts_term(is) = drifts_term(is) + sum(drifts_kxkyz(:, ikx, iz, it, is) * dVolume(ia, ikx, iz))
-                        volume = volume + dVolume(ia, ikx, iz)
-                     end do
-                  end do
-               end do
-               drifts_term(is) = drifts_term(is) / volume
-               drifts_sum = drifts_sum + drifts_term(is)
-            end do
-         end if
+         g1 = g1 * 1 / code_dt
+         call get_one_energy_term(g,g1,factor_spec,drifts_term,drifts_sum,drifts_kxkyz)
+      
          !Calculate streaming
          g1 = 0
-         g2 = 0
-         g3 = 0
-         !if(proc0) write(test_unit,*) code_time,'start streaming'
-         !do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
-         !   iv = iv_idx(vmu_lo, ivmu)
-         !   imu = imu_idx(vmu_lo, ivmu)
-         !   is = is_idx(vmu_lo, ivmu)
-         !   do it = 1, ntubes
-         !      do iz = -nzgrid, nzgrid
-         !         g(:,:,iz,:,ivmu) = cos(4*zed(iz)) * exp(- (zed(iz) / (pi/4.0))**2 / 2.0) * cmplx(1.0, 0.0)
-         !         !g(:,:,iz,:,ivmu) = exp(- (zed(iz) / (pi/4.0))**2 / 2.0) * cmplx(1.0, 0.0)
-         !      end do
-         !  end do
-         !end do
          do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
-            call get_dgdz_centered(g(:, :, :, :, ivmu), ivmu, g2(:, :, :, :, ivmu))
-            !   call get_dgdz(g(:, :, :, :, ivmu), ivmu, g1(:, :, :, :, ivmu))
+            call get_dgdz_centered(g(:, :, :, :, ivmu), ivmu, g1(:, :, :, :, ivmu))
             iv = iv_idx(vmu_lo, ivmu)
             imu = imu_idx(vmu_lo, ivmu)
             is = is_idx(vmu_lo, ivmu)
-            call add_stream_term(g2(:, :, :, :, ivmu), ivmu, g3(:, :, :, :, ivmu))
             do it = 1, ntubes
                do iz = -nzgrid, nzgrid
-                  g3(:, :, iz, it, ivmu) = -b_dot_grad_z(ia, iz) * vpa(iv) * g2(:, :, iz, it, ivmu)
-                  g0(:, :, iz, it, ivmu) = g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
-                                           1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is))
+                  g1(:, :, iz, it, ivmu) = -b_dot_grad_z(ia, iz) * vpa(iv) * g1(:, :, iz, it, ivmu)
                end do
             end do
          end do
-         call integrate_vmu(g0, weights, velocity_integral1)
-         if (proc0) then
-            !   write (test_unit, '(9a20)') 'iz', 'zed', 'g', 'g1', 'g2', 'g0', 'velocity_integral1', 'streaming_kxkyz'
-            !   call flush (test_unit)
-            streaming_term = 0
-            do is = 1, nspec
-               do it = 1, ntubes
-                  do iz = -nzgrid, nzgrid
-                     do ikx = 1, nakx
-                 streaming_kxkyz(:, ikx, iz, it, is) = 0.5 * mode_fac * (real(spec(is)%dens * spec(is)%temp * velocity_integral1(:, ikx, iz, it, is)))
-                        streaming_term(is) = streaming_term(is) + sum(streaming_kxkyz(:, ikx, iz, it, is) * dVolume(ia, ikx, iz))
-                        volume = volume + dVolume(ia, ikx, iz)
-                     end do
-                     !            ivmu = vmu_lo%llim_proc
-                     !            write (test_unit, '(I20,8e20.8E3)')  iz, zed(iz), real(g(1,1,iz,1,ivmu)), real(g1(1,1,iz,1,ivmu)), real(g2(1,1,iz,1,ivmu)), real(g0(1,1,iz,1,ivmu))&
-                     !                                    , real(velocity_integral1(1,1,iz,1,is)), real(streaming_kxkyz(1,1,iz,1,is))
-                     !            call flush (test_unit)
-                  end do
-               end do
-               streaming_term(is) = streaming_term(is) / volume
-               streaming_sum = streaming_sum + streaming_term(is)
-            end do
-         end if
+         do is = 1, nspec
+            factor_spec(is) = spec(is)%dens * spec(is)%temp
+         end do
+         call get_one_energy_term(g,g1,factor_spec,streaming_term,streaming_sum,streaming_kxkyz)
 
          !Calculate mirror
-         g2 = 0
-         g3 = 0
-         !if(proc0) write(test_unit,*) code_time, 'start mirror'
-         !if(proc0) call flush (test_unit)
-         !do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
-         !   iv = iv_idx(vmu_lo, ivmu)
-         !   imu = imu_idx(vmu_lo, ivmu)
-         !   is = is_idx(vmu_lo, ivmu)
-         !   do it = 1, ntubes
-         !      do iz = -nzgrid, nzgrid
-         !         g(:,:,:,:,ivmu) = cos(4*vpa(iv)) * exp(- (vpa(iv) / 2.0)**2 / 2.0) * cmplx(1.0, 0.0)
-         !         !g(:,:,:,:,ivmu) =  exp(- (vpa(iv) / 2.0)**2 / 2.0) * cmplx(1.0, 0.0)
-         !      end do
-         !   end do
-         !end do
+         g1 = 0
          call scatter(kxkyz2vmu, g, g0v)
-
-         g1v = g0v
-         g2v = g0v
-         !call get_dgdvpa_explicit(g1v)
-         call get_dgdvpa_centered(g2v)
-         !if(proc0) write(test_unit,'(4a10,a20,a10,4a20)') 'iz', 'ikx', 'iky', 'imu', 'mu', 'iv', 'vpa', 'g0v', 'g1v', 'g2v'
-         !do ikxkyz = kxkyz_lo%llim_proc, kxkyz_lo%ulim_proc
-         !   iz = iz_idx(kxkyz_lo, ikxkyz)
-         !   is = is_idx(kxkyz_lo, ikxkyz)
-         !   ikx = ikx_idx(kxkyz_lo, ikxkyz)
-         !   iky = iky_idx(kxkyz_lo, ikxkyz)
-         !   imu = 1
-         !   do iv = 1, nvpa
-         !      if (iproc == 0) then
-         !         if(iz == -64 .and. ikx == 1 .and. iky == 1 .and. imu == 1) write(test_unit, '(4I10,E20.4E3,I10,4E20.4E3)') iz, ikx, iky, imu,mu(imu), iv,vpa(iv),&
-         !            real(g0v(iv,imu,ikxkyz)), real(g1v(iv,imu,ikxkyz)), real(g2v(iv,imu,ikxkyz))
-         !         if(iz == -64 .and. ikx == 1 .and. iky == 1 .and. imu == 1) call flush (test_unit)
-         !      end if
-         !   end do
-         !end do
-         call gather(kxkyz2vmu, g2v, g2)
-         !call add_mirror_term(g2, g3)
-
+         call get_dgdvpa_centered(g0v)
+         call gather(kxkyz2vmu, g0v, g1)
          do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
             iv = iv_idx(vmu_lo, ivmu)
             imu = imu_idx(vmu_lo, ivmu)
             is = is_idx(vmu_lo, ivmu)
             do it = 1, ntubes
                do iz = -nzgrid, nzgrid
-                  g3(:, :, iz, it, ivmu) = b_dot_grad_z(ia, iz) * mu(imu) * dbdzed(ia, iz) * g2(:, :, iz, it, ivmu)
-                  g0(:, :, iz, it, ivmu) = g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
-                                           1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is))
+                  g1(:, :, iz, it, ivmu) = b_dot_grad_z(ia, iz) * mu(imu) * dbdzed(ia, iz) * g1(:, :, iz, it, ivmu)
                end do
             end do
          end do
-         call integrate_vmu(g0, weights, velocity_integral1)
-         if (proc0) then
-            mirror_term = 0
-            !write (test_unit, '(9a20)') 'iz', 'zed', 'g', 'g2', 'g3', 'g0', 'velocity_integral1', 'mirror_kxkyz', 'dVolume'
-            !call flush (test_unit)
-            do is = 1, nspec
-               do it = 1, ntubes
-                  do iz = -nzgrid, nzgrid
-                     do ikx = 1, nakx
-                    mirror_kxkyz(:, ikx, iz, it, is) = 0.5 * mode_fac * (real(spec(is)%dens * spec(is)%temp * velocity_integral1(:, ikx, iz, it, is)))
-                        mirror_term(is) = mirror_term(is) + sum(mirror_kxkyz(:, ikx, iz, it, is) * dVolume(ia, ikx, iz))
-                        volume = volume + dVolume(ia, ikx, iz)
-                     end do
-                     !ivmu = vmu_lo%llim_proc
-                     !write (test_unit, '(I20,8e20.8E3)')  iz, zed(iz), real(g(1,1,iz,1,ivmu)), real(g2(1,1,iz,1,ivmu)), real(g3(1,1,iz,1,ivmu)), real(g0(1,1,iz,1,ivmu))&
-                     !                        , real(velocity_integral1(1,1,iz,1,is)), real(mirror_kxkyz(1,1,iz,1,is)), dVolume(ia, 1, iz)
-                     !call flush (test_unit)
-                  end do
-               end do
-               mirror_term(is) = mirror_term(is) / volume
-               mirror_sum = mirror_sum + mirror_term(is)
-            end do
-         end if
-         !if (proc0)   call close_output_file(test_unit)
+         do is = 1, nspec
+            factor_spec(is) = spec(is)%dens * spec(is)%temp
+         end do
+         call get_one_energy_term(g,g1,factor_spec,mirror_term,mirror_sum,mirror_kxkyz)
 
          !Calculate nonlinearity
          if (nonlinear) then
-            g3 = 0
-            call advance_ExB_nonlinearity(g, g3, restart_time_step, istep)
-            do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
-               iv = iv_idx(vmu_lo, ivmu)
-               imu = imu_idx(vmu_lo, ivmu)
-               is = is_idx(vmu_lo, ivmu)
-               do it = 1, ntubes
-                  do iz = -nzgrid, nzgrid
-                     g0(:, :, iz, it, ivmu) = g3(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
-                                              1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is)) * 1 / code_dt
-                  end do
-               end do
+            g1 = 0
+            call advance_ExB_nonlinearity(g, g1, restart_time_step, istep)
+            g1 = g1 * 1 / code_dt
+            do is = 1, nspec
+               factor_spec(is) = spec(is)%dens * spec(is)%temp
             end do
-            call integrate_vmu(g0, weights, velocity_integral1)
-            if (proc0) then
-               nonlinear_term = 0
-               do is = 1, nspec
-                  do it = 1, ntubes
-                     do iz = -nzgrid, nzgrid
-                        do ikx = 1, nakx
-                 nonlinear_kxkyz(:, ikx, iz, it, is) = 0.5 * mode_fac * (real(spec(is)%dens * spec(is)%temp * velocity_integral1(:, ikx, iz, it, is)))
-                           nonlinear_term(is) = nonlinear_term(is) + sum(nonlinear_kxkyz(:, ikx, iz, it, is) * dVolume(ia, 1, iz))
-                           volume = volume + dVolume(ia, ikx, iz)
-                        end do
-                     end do
-                  end do
-                  nonlinear_term(is) = nonlinear_term(is) / volume
-                  nonlinear_sum = nonlinear_sum + nonlinear_term(is)
-               end do
-            end if
+            call get_one_energy_term(g,g1,factor_spec,nonlinear_term,nonlinear_sum,nonlinear_kxkyz)
          end if
       end if
 
@@ -1075,8 +980,6 @@ contains
       if (allocated(mirror_term)) deallocate (mirror_term)
       if (allocated(nonlinear_term)) deallocate (nonlinear_term)
       if (allocated(g0v)) deallocate (g0v)
-      if (allocated(g1v)) deallocate (g1v)
-      if (allocated(g2v)) deallocate (g2v)
       if (allocated(phi_zero)) deallocate (phi_zero)
       if (allocated(drive_via_flux)) deallocate (drive_via_flux)
       if (allocated(velocity_integral1)) deallocate (velocity_integral1)

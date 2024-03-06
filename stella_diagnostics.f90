@@ -618,7 +618,6 @@ contains
       call integrate_vmu(g0, weights, velocity_integral1)
       if (proc0) then
          do is = 1, nspec
-            !write(*,*) '1. velocity_integral1', sum(velocity_integral1(:, :,:,:, is))
             volume_total = 0.
             do it = 1, ntubes
                do iz = -nzgrid, nzgrid
@@ -716,13 +715,11 @@ contains
       real :: mirror_sum
       real :: volume
       real :: test1, test2
-      real, dimension(:), allocatable :: weights
       real, dimension(:), allocatable :: factor_spec
       complex, dimension(:), allocatable :: energy_total
       complex, dimension(:), allocatable :: drive_term, diss_perp, diss_zed, diss_vpa
       complex, dimension(:), allocatable :: drifts_term, streaming_term, nonlinear_term, mirror_term
       complex, dimension(:), allocatable :: drive_via_flux
-      complex, dimension(:, :, :, :, :), allocatable :: velocity_integral1
       complex, dimension(:, :, :, :), allocatable :: phi_zero
 
       complex, dimension(:, :, :), allocatable :: g0v
@@ -756,11 +753,9 @@ contains
 
       ia = 1
       !TODO check normalization
-      allocate (velocity_integral1(naky, nakx, -nzgrid:nzgrid, ntubes, nspec))
 
       allocate (g0v(nvpa, nmu, kxkyz_lo%llim_proc:kxkyz_lo%ulim_alloc))
 
-      allocate (weights(nspec))
       allocate (factor_spec(nspec))
 
       allocate (energy_total(nspec))
@@ -777,7 +772,6 @@ contains
 
       allocate (phi_zero(naky, nakx, -nzgrid:nzgrid, ntubes))
       phi_zero = 0.
-      weights = 1.
       volume = 0.
       g0 = 0.
       g1 = 0.
@@ -818,47 +812,12 @@ contains
             g2 = g
             g3 = 0
             call g_to_h(g2, phi, -fphi)
-            if (proc0) write (*, *) 'g2', sum(g2)
             call advance_hyper_zed(g2, g3)
-            if (proc0) write (*, *) 'g3', sum(g3)
             g1 = g3 * 1 / code_dt
             do is = 1, nspec
                factor_spec(is) = spec(is)%dens * spec(is)%temp
             end do
             call get_one_energy_term(g, g1, factor_spec, diss_zed, diss_zed_sum, diss_zed_kxkyz)
-            if (proc0) write (*, *) '1. diss_zed_sum', diss_zed_sum
-            diss_zed_sum = 0
-            do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
-               iv = iv_idx(vmu_lo, ivmu)
-               imu = imu_idx(vmu_lo, ivmu)
-               is = is_idx(vmu_lo, ivmu)
-               do it = 1, ntubes
-                  do iz = -nzgrid, nzgrid
-                     g1(:, :, iz, it, ivmu) = g1(:, :, iz, it, ivmu) * CONJG(g(:, :, iz, it, ivmu)) * &
-                                              1 / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is))
-                  end do
-               end do
-            end do
-            call integrate_vmu(g1, weights, velocity_integral1)
-            if (proc0) then
-               diss_zed = 0
-               volume = 0
-               do is = 1, nspec
-                  write (*, *) '2. zed velocity_integral1', sum(velocity_integral1(:, :, :, :, is))
-                  do it = 1, ntubes
-                     do iz = -nzgrid, nzgrid
-                        do ikx = 1, nakx
-                  diss_zed_kxkyz(:, ikx, iz, it, is) = 0.5 * mode_fac * (real(spec(is)%dens * spec(is)%temp * velocity_integral1(:, ikx, iz, it, is)))
-                           diss_zed(is) = diss_zed(is) + sum(diss_zed_kxkyz(:, ikx, iz, it, is) * dVolume(ia, ikx, iz))
-                           volume = volume + dVolume(ia, ikx, iz)
-                        end do
-                     end do
-                  end do
-                  diss_zed(is) = diss_zed(is) / volume
-                  diss_zed_sum = diss_zed_sum + diss_zed(is)
-               end do
-               write (*, *) '2. diss_zed_sum', diss_zed_sum
-            end if
          end if
          !Calculate dissipation in the parallel velocity
          if (hyp_vpa) then
@@ -954,7 +913,6 @@ contains
          call flush (energy_unit)
       end if
 
-      if (allocated(weights)) deallocate (weights)
       if (allocated(energy_total)) deallocate (energy_total)
       if (allocated(drive_term)) deallocate (drive_term)
       if (allocated(diss_perp)) deallocate (diss_perp)
@@ -965,7 +923,6 @@ contains
       if (allocated(g0v)) deallocate (g0v)
       if (allocated(phi_zero)) deallocate (phi_zero)
       if (allocated(drive_via_flux)) deallocate (drive_via_flux)
-      if (allocated(velocity_integral1)) deallocate (velocity_integral1)
 
    end subroutine get_free_energy
 

@@ -26,10 +26,9 @@ module fields_arrays
    complex, dimension(:, :, :, :, :), allocatable :: phi_corr_GA, apar_corr_GA
    ! (naky, nakx, -nzgrid:nzgrid, ntubes, -vmu-layout-)
 
-   ! needed to calculate the energy 
+   ! needed to calculate the energy
    complex, dimension(:, :, :, :), allocatable :: phi_zero
    ! (naky, nakx, -nzgrid:nzgrid, ntubes)
-
 
    type(response_matrix_type), dimension(:), allocatable :: response_matrix
    integer :: response_window = MPI_WIN_NULL

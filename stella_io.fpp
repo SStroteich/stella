@@ -479,7 +479,7 @@ contains
    end subroutine write_fluxes_kxkyz_nc
 
    subroutine nc_volume()
-  
+
 # ifdef NETCDF
       use neasyf, only: neasyf_write
       use stella_geometry, only: dVolume
@@ -490,7 +490,6 @@ contains
       call neasyf_write(ncid, "dVolume", dVolume, dim_names=[character(len=5) :: "alpha", "kx", "zed"])
 # endif
    end subroutine nc_volume
-
 
    subroutine write_energy_kxkyz_nc(nout, free_energy_kxkyz, drive_kxkyz, &
                                     diss_perp_kxkyz, diss_zed_kxkyz, diss_vpa_kxkyz, &

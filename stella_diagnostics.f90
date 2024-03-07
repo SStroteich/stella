@@ -38,10 +38,6 @@ module stella_diagnostics
    complex, dimension(:, :, :, :, :), allocatable :: velocity_integral1
    real, dimension(:), allocatable :: weights_energy
 
-
-
-
-
    !> Needed for calculating growth rates and frequencies
    complex, dimension(:, :, :), allocatable :: omega_vs_time
 
@@ -146,7 +142,6 @@ contains
       if (proc0) call open_loop_ascii_files(restart)
       if (proc0 .and. write_energy) call nc_volume()
 
-
       !> Get the final position [[nout]] of the time axis in the netcdf file
       if (proc0) call get_nout(tstart, nout)
       call broadcast(nout)
@@ -208,8 +203,6 @@ contains
       use zgrid, only: nzgrid, ntubes
       use fields_arrays, only: phi_zero
 
-
-
       implicit none
 
       if (.not. allocated(pflux)) allocate (pflux(nakx, naky, nspec)); pflux = 0.
@@ -250,9 +243,6 @@ contains
          allocate (velocity_integral1(naky, nakx, -nzgrid:nzgrid, ntubes, nspec))
          velocity_integral1 = 0.
       end if
-      
-
-
 
    end subroutine allocate_arrays
 
@@ -689,7 +679,7 @@ contains
       use stella_layouts, only: iv_idx, imu_idx, is_idx
       use species, only: spec, nspec
       use zgrid, only: nzgrid, ntubes
-      use vpamu_grids, only: mu, vpa,  nmu, nvpa
+      use vpamu_grids, only: mu, vpa, nmu, nvpa
       use run_parameters, only: fphi
       use kt_grids, only: naky, nakx
       use stella_time, only: code_time, code_dt
@@ -704,8 +694,6 @@ contains
       use parallel_streaming, only: get_dgdz_centered
       use mirror_terms, only: get_dgdvpa_centered
       use g_tofrom_h, only: g_to_h
-
-
 
       implicit none
 
@@ -737,8 +725,6 @@ contains
       real :: nonlinear_sum
       real :: mirror_sum
 
-
-
       logical :: restart_time_step
       restart_time_step = .false.
 
@@ -766,7 +752,7 @@ contains
       mirror_sum = 0.
 
       ia = 1
-      
+
       phi_zero = 0.
       g1 = 0.
       g2 = 0.
@@ -907,8 +893,6 @@ contains
             , nonlinear_sum
          call flush (energy_unit)
       end if
-
-
 
    end subroutine get_free_energy
 
@@ -2314,20 +2298,20 @@ contains
       if (allocated(vflux_avg)) deallocate (vflux_avg)
       if (allocated(heat_avg)) deallocate (heat_avg)
       if (allocated(omega_vs_time)) deallocate (omega_vs_time)
-      
-      if(allocated(factor_spec)) deallocate (factor_spec)
-      if(allocated(energy_total)) deallocate (energy_total)
-      if(allocated(drive_term)) deallocate (drive_term)
-      if(allocated(drive_via_flux)) deallocate (drive_via_flux)
-      if(allocated(diss_perp)) deallocate (diss_perp)
-      if(allocated(diss_zed)) deallocate (diss_zed)
-      if(allocated(diss_vpa)) deallocate (diss_vpa)
-      if(allocated(drifts_term)) deallocate (drifts_term)
-      if(allocated(streaming_term)) deallocate (streaming_term)
-      if(allocated(nonlinear_term)) deallocate (nonlinear_term)
-      if(allocated(mirror_term)) deallocate (mirror_term)
-      if(allocated(weights_energy)) deallocate(weights_energy)
-      
+
+      if (allocated(factor_spec)) deallocate (factor_spec)
+      if (allocated(energy_total)) deallocate (energy_total)
+      if (allocated(drive_term)) deallocate (drive_term)
+      if (allocated(drive_via_flux)) deallocate (drive_via_flux)
+      if (allocated(diss_perp)) deallocate (diss_perp)
+      if (allocated(diss_zed)) deallocate (diss_zed)
+      if (allocated(diss_vpa)) deallocate (diss_vpa)
+      if (allocated(drifts_term)) deallocate (drifts_term)
+      if (allocated(streaming_term)) deallocate (streaming_term)
+      if (allocated(nonlinear_term)) deallocate (nonlinear_term)
+      if (allocated(mirror_term)) deallocate (mirror_term)
+      if (allocated(weights_energy)) deallocate (weights_energy)
+
       if (allocated(phi_zero)) deallocate (phi_zero)
       if (allocated(velocity_integral1)) deallocate (velocity_integral1)
 

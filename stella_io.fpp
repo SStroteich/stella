@@ -24,6 +24,7 @@ module stella_io
    public :: write_radial_moments_nc
    public :: write_fluxes_kxkyz_nc
    public :: write_energy_kxkyz_nc
+   public :: nc_volume
 
    public :: get_nout
    public :: sync_nc
@@ -477,6 +478,20 @@ contains
 # endif
    end subroutine write_fluxes_kxkyz_nc
 
+   subroutine nc_volume()
+  
+# ifdef NETCDF
+      use neasyf, only: neasyf_write
+      use stella_geometry, only: dVolume
+#endif
+      implicit none
+
+# ifdef NETCDF
+      call neasyf_write(ncid, "dVolume", dVolume, dim_names=[character(len=5) :: "alpha", "kx", "zed"])
+# endif
+   end subroutine nc_volume
+
+
    subroutine write_energy_kxkyz_nc(nout, free_energy_kxkyz, drive_kxkyz, &
                                     diss_perp_kxkyz, diss_zed_kxkyz, diss_vpa_kxkyz, &
                                     drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz)
@@ -642,7 +657,7 @@ contains
       use neasyf, only: neasyf_write
       use stella_geometry, only: bmag, gradpar, gbdrift, gbdrift0, &
                                  cvdrift, cvdrift0, gds2, gds21, gds22, grho, jacob, &
-                                 drhodpsi, djacdrho, b_dot_grad_z, dVolume
+                                 drhodpsi, djacdrho, b_dot_grad_z
       use stella_geometry, only: geo_surf
       use physics_parameters, only: beta
       use dist_fn_arrays, only: kperp2
@@ -671,7 +686,6 @@ contains
       call neasyf_write(file_id, "gds22", gds22, dim_names=flux_surface_dim)
       call neasyf_write(file_id, "grho", grho, dim_names=flux_surface_dim)
       call neasyf_write(file_id, "jacob", jacob, dim_names=flux_surface_dim)
-      call neasyf_write(file_id, "dVolume", dVolume, dim_names=[character(len=5) :: "alpha", "kx", "zed"])
       call neasyf_write(file_id, "djacdrho", djacdrho, dim_names=flux_surface_dim)
       call neasyf_write(file_id, "beta", beta, &
                         long_name="Reference beta", units="2.mu0.nref.Tref/B_a**2")

@@ -72,7 +72,7 @@ contains
       !avoid the double counting at the zed boundaries
       dVolume(:, :, -nzgrid) = 0.5 * dVolume(:, :, -nzgrid)
       dVolume(:, :, nzgrid) = 0.5 * dVolume(:, :, nzgrid)
-      volume_total = sum(dVolume(1,1,:))
+      volume_total = sum(dVolume(1, 1, :))
 
    end subroutine init_volume_averages
 

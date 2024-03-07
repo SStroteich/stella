@@ -261,7 +261,7 @@ contains
       use kt_grids, only: naky, nakx
       use vpamu_grids, only: nvpa, nmu
       use dist_fn_arrays, only: gnew, gold, g_gyro
-      use dist_fn_arrays, only: gvmu
+      use dist_fn_arrays, only: gvmu, gvmu0
 
       implicit none
 
@@ -277,6 +277,9 @@ contains
       if (.not. allocated(gvmu)) &
          allocate (gvmu(nvpa, nmu, kxkyz_lo%llim_proc:kxkyz_lo%ulim_alloc))
       gvmu = 0.
+      if (.not. allocated(gvmu0)) &
+         allocate (gvmu0(nvpa, nmu, kxkyz_lo%llim_proc:kxkyz_lo%ulim_alloc))
+      gvmu0 = 0.
 
    end subroutine allocate_arrays
 
@@ -321,7 +324,7 @@ contains
 
    subroutine deallocate_arrays
 
-      use dist_fn_arrays, only: gnew, gold, g_gyro, gvmu
+      use dist_fn_arrays, only: gnew, gold, g_gyro, gvmu, gvmu0
 
       implicit none
 
@@ -329,6 +332,7 @@ contains
       if (allocated(gold)) deallocate (gold)
       if (allocated(g_gyro)) deallocate (g_gyro)
       if (allocated(gvmu)) deallocate (gvmu)
+      if (allocated(gvmu0)) deallocate (gvmu0)
 
    end subroutine deallocate_arrays
 

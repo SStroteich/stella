@@ -33,7 +33,7 @@ module dist_fn_arrays
    complex, dimension(:, :, :, :), allocatable :: g_proj
    ! (nakx, -nzgrid:nzgrid, ntubes, -vmu-layout-)
 
-   complex, dimension(:, :, :), allocatable :: gvmu
+   complex, dimension(:, :, :), allocatable :: gvmu,gvmu0
    ! (nvpa, nmu, -kxkyz-layout-)
 
    real, dimension(:, :, :), allocatable :: wstar, wstarp

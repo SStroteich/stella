@@ -31,6 +31,17 @@ module stella_diagnostics
    real, dimension(:), allocatable :: pflux_avg, vflux_avg, qflux_avg, heat_avg
    real, dimension(:, :, :), allocatable :: pflux, vflux, qflux, exchange
 
+   !> Arrays needed for energy diagnostic
+   real, dimension(:), allocatable :: factor_spec
+   real, dimension(:), allocatable :: energy_total, drive_term, drive_via_flux, diss_perp, diss_zed, diss_vpa
+   real, dimension(:), allocatable :: drifts_term, streaming_term, nonlinear_term, mirror_term
+   complex, dimension(:, :, :, :, :), allocatable :: velocity_integral1
+   real, dimension(:), allocatable :: weights_energy
+
+
+
+
+
    !> Needed for calculating growth rates and frequencies
    complex, dimension(:, :, :), allocatable :: omega_vs_time
 
@@ -181,6 +192,7 @@ contains
          if (exist) read (unit=in_file, nml=stella_diagnostics_knobs)
 
          if (.not. save_for_restart) nsave = -1
+         if (.not. write_energy) write_energy_kxkyz = .false.
       end if
 
    end subroutine read_parameters
@@ -190,6 +202,10 @@ contains
 
       use species, only: nspec
       use kt_grids, only: nakx, naky
+      use zgrid, only: nzgrid, ntubes
+      use fields_arrays, only: phi_zero
+
+
 
       implicit none
 
@@ -210,6 +226,30 @@ contains
             navg = 1
          end if
       end if
+
+      if (.not. allocated(factor_spec)) allocate (factor_spec(nspec)); factor_spec = 0.
+      if (.not. allocated(energy_total)) allocate (energy_total(nspec)); energy_total = 0.
+      if (.not. allocated(drive_term)) allocate (drive_term(nspec)); drive_term = 0.
+      if (.not. allocated(drive_via_flux)) allocate (drive_via_flux(nspec)); drive_via_flux = 0.
+      if (.not. allocated(diss_perp)) allocate (diss_perp(nspec)); diss_perp = 0.
+      if (.not. allocated(diss_zed)) allocate (diss_zed(nspec)); diss_zed = 0.
+      if (.not. allocated(diss_vpa)) allocate (diss_vpa(nspec)); diss_vpa = 0.
+      if (.not. allocated(drifts_term)) allocate (drifts_term(nspec)); drifts_term = 0.
+      if (.not. allocated(streaming_term)) allocate (streaming_term(nspec)); streaming_term = 0.
+      if (.not. allocated(nonlinear_term)) allocate (nonlinear_term(nspec)); nonlinear_term = 0.
+      if (.not. allocated(mirror_term)) allocate (mirror_term(nspec)); mirror_term = 0.
+      if (.not. allocated(weights_energy)) allocate (weights_energy(nspec)); weights_energy = 1.
+      if (.not. allocated(phi_zero) .and. write_energy) then
+         allocate (phi_zero(naky, nakx, -nzgrid:nzgrid, ntubes))
+         phi_zero = 0.
+      end if
+      if (.not. allocated(velocity_integral1) .and. write_energy) then
+         allocate (velocity_integral1(naky, nakx, -nzgrid:nzgrid, ntubes, nspec))
+         velocity_integral1 = 0.
+      end if
+      
+
+
 
    end subroutine allocate_arrays
 
@@ -569,6 +609,7 @@ contains
    end subroutine diagnose_stella
 
    !it takes input values of g, phi, factor_spec and returns sum_spec and the array
+   !TODO move the allocation of velocity_integral1 and weights to the module level
    subroutine get_one_energy_term(g, term, factor_spec, sum_spec, sum_total, term_kxkyz)
       use mp, only: proc0
       use dist_fn_arrays, only: g0
@@ -586,18 +627,14 @@ contains
       complex, dimension(:, :, -nzgrid:, :, vmu_lo%llim_proc:), intent(in) :: g, term
 
       real, dimension(nspec), intent(in) :: factor_spec
-      complex, dimension(nspec), intent(out) :: sum_spec
+      real, dimension(nspec), intent(out) :: sum_spec
       real, intent(out) :: sum_total
       real, dimension(:, :, -nzgrid:, :, :), intent(out) :: term_kxkyz
 
       real :: volume_total
       integer :: ivmu, imu, iv, iz, it, is, ia, ikx
-      complex, dimension(:, :, :, :, :), allocatable :: velocity_integral1
-      real, dimension(:), allocatable :: weights
 
-      allocate (velocity_integral1(naky, nakx, -nzgrid:nzgrid, ntubes, nspec))
-      allocate (weights(nspec))
-      weights = 1.
+      weights_energy = 1.
       sum_spec = 0.
       term_kxkyz = 0.
       velocity_integral1 = 0.
@@ -615,7 +652,9 @@ contains
             end do
          end do
       end do
-      call integrate_vmu(g0, weights, velocity_integral1)
+      call integrate_vmu(g0, weights_energy, velocity_integral1)
+      !TODO parallelize the following loop
+
       if (proc0) then
          do is = 1, nspec
             volume_total = 0.
@@ -632,8 +671,6 @@ contains
             sum_total = sum_total + sum_spec(is)
          end do
       end if
-      deallocate (velocity_integral1)
-      deallocate (weights)
    end subroutine get_one_energy_term
 
    !> Calculate free energy, the drive term and the dissipation
@@ -642,45 +679,30 @@ contains
                               drive_kxkyz, drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz, &
                               part_flux, mom_flux, heat_flux, istep)
 
-      use mp, only: proc0, barrier
-      use constants, only: zi, pi
-      use dist_fn_arrays, only: g0, g1, g2, g3
-      use dist_fn_arrays, only: wstar
+      use mp, only: proc0
+      use dist_fn_arrays, only: g1, g2, g3, gvmu0, kperp2
+      use fields_arrays, only: phi_zero
       use stella_layouts, only: vmu_lo
       use stella_layouts, only: iv_idx, imu_idx, is_idx
       use species, only: spec, nspec
-      use stella_geometry, only: grho_norm
-      use zgrid, only: nzgrid, ntubes, zed
-      use vpamu_grids, only: mu, vpa, vperp2, wgts_mu, nmu, nvpa, wgts_vpa
-      use vpamu_grids, only: integrate_vmu
-      use vpamu_grids, only: maxwell_vpa, maxwell_mu, maxwell_fac
+      use zgrid, only: nzgrid, ntubes
+      use vpamu_grids, only: mu, vpa,  nmu, nvpa
       use run_parameters, only: fphi
-      use kt_grids, only: aky, akx
       use kt_grids, only: naky, nakx
-      use gyro_averages, only: aj0x, gyro_average
-      use volume_averages, only: mode_fac
       use stella_time, only: code_time, code_dt
-      use stella_geometry, only: dVolume, bmag, b_dot_grad_z, dbdzed
+      use stella_geometry, only: b_dot_grad_z, dbdzed
       use physics_flags, only: nonlinear
-      use dist_fn_arrays, only: kperp2
-      use hyper, only: D_hyper, k2max, advance_hyper_zed, advance_hyper_vpa
-      use hyper, only: hyp_vpa, hyp_zed
-      use file_utils, only: close_output_file
-
+      use hyper, only: D_hyper, k2max, advance_hyper_zed, advance_hyper_vpa, hyp_vpa, hyp_zed
       use redistribute, only: gather, scatter
       use dist_redistribute, only: kxkyz2vmu
       use stella_layouts, only: kxyz_lo, kxkyz_lo, vmu_lo
-      use stella_layouts, only: iz_idx, iky_idx, ikx_idx
-
       use time_advance, only: advance_wdriftx_explicit, advance_wdrifty_explicit, advance_ExB_nonlinearity
       use time_advance, only: advance_wstar_explicit
-      use parallel_streaming, only: add_stream_term
-      use parallel_streaming, only: get_dgdz, get_dgdz_centered
-      use mirror_terms, only: add_mirror_term
-      use mirror_terms, only: advance_mirror_explicit
-      use mirror_terms, only: get_dgdvpa_explicit, get_dgdvpa_centered
-
+      use parallel_streaming, only: get_dgdz_centered
+      use mirror_terms, only: get_dgdvpa_centered
       use g_tofrom_h, only: g_to_h
+
+
 
       implicit none
 
@@ -705,27 +727,16 @@ contains
       real :: diss_perp_sum
       real :: diss_zed_sum
       real :: diss_vpa_sum
-
       real :: drive_sum
       real :: drive_sum_via_flux
-      real :: drive_sum2
       real :: drifts_sum
       real :: streaming_sum
       real :: nonlinear_sum
       real :: mirror_sum
-      real :: volume
-      real :: test1, test2
-      real, dimension(:), allocatable :: factor_spec
-      complex, dimension(:), allocatable :: energy_total
-      complex, dimension(:), allocatable :: drive_term, diss_perp, diss_zed, diss_vpa
-      complex, dimension(:), allocatable :: drifts_term, streaming_term, nonlinear_term, mirror_term
-      complex, dimension(:), allocatable :: drive_via_flux
-      complex, dimension(:, :, :, :), allocatable :: phi_zero
 
-      complex, dimension(:, :, :), allocatable :: g0v
+
 
       logical :: restart_time_step
-      logical :: use_advance_wstar = .true.
       restart_time_step = .false.
 
       free_energy_kxkyz = 0.
@@ -752,34 +763,15 @@ contains
       mirror_sum = 0.
 
       ia = 1
-      !TODO check normalization
-
-      allocate (g0v(nvpa, nmu, kxkyz_lo%llim_proc:kxkyz_lo%ulim_alloc))
-
-      allocate (factor_spec(nspec))
-
-      allocate (energy_total(nspec))
-      allocate (drive_term(nspec))
-      allocate (diss_perp(nspec))
-      allocate (diss_zed(nspec))
-      allocate (diss_vpa(nspec))
-
-      allocate (drive_via_flux(nspec))
-      allocate (drifts_term(nspec))
-      allocate (streaming_term(nspec))
-      allocate (nonlinear_term(nspec))
-      allocate (mirror_term(nspec))
-
-      allocate (phi_zero(naky, nakx, -nzgrid:nzgrid, ntubes))
+      
       phi_zero = 0.
-      volume = 0.
-      g0 = 0.
       g1 = 0.
       g2 = 0.
+      g3 = 0
+
       ! FLAG - electrostatic for now
       ! get electrostatic contributions to energy terms
       if (fphi > epsilon(0.0)) then
-         ia = 1
 
          ! Calculate free energy
          g1 = g
@@ -877,9 +869,9 @@ contains
 
          !Calculate mirror
          g1 = 0
-         call scatter(kxkyz2vmu, g, g0v)
-         call get_dgdvpa_centered(g0v)
-         call gather(kxkyz2vmu, g0v, g1)
+         call scatter(kxkyz2vmu, g, gvmu0)
+         call get_dgdvpa_centered(gvmu0)
+         call gather(kxkyz2vmu, gvmu0, g1)
          do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
             iv = iv_idx(vmu_lo, ivmu)
             imu = imu_idx(vmu_lo, ivmu)
@@ -913,16 +905,7 @@ contains
          call flush (energy_unit)
       end if
 
-      if (allocated(energy_total)) deallocate (energy_total)
-      if (allocated(drive_term)) deallocate (drive_term)
-      if (allocated(diss_perp)) deallocate (diss_perp)
-      if (allocated(drifts_term)) deallocate (drifts_term)
-      if (allocated(streaming_term)) deallocate (streaming_term)
-      if (allocated(mirror_term)) deallocate (mirror_term)
-      if (allocated(nonlinear_term)) deallocate (nonlinear_term)
-      if (allocated(g0v)) deallocate (g0v)
-      if (allocated(phi_zero)) deallocate (phi_zero)
-      if (allocated(drive_via_flux)) deallocate (drive_via_flux)
+
 
    end subroutine get_free_energy
 
@@ -2316,7 +2299,7 @@ contains
    !============ DEALLCOATE ARRAYS ===============
    !==============================================
    subroutine deallocate_arrays
-
+      use fields_arrays, only: phi_zero
       implicit none
 
       if (allocated(pflux)) deallocate (pflux)
@@ -2328,6 +2311,22 @@ contains
       if (allocated(vflux_avg)) deallocate (vflux_avg)
       if (allocated(heat_avg)) deallocate (heat_avg)
       if (allocated(omega_vs_time)) deallocate (omega_vs_time)
+      
+      if(allocated(factor_spec)) deallocate (factor_spec)
+      if(allocated(energy_total)) deallocate (energy_total)
+      if(allocated(drive_term)) deallocate (drive_term)
+      if(allocated(drive_via_flux)) deallocate (drive_via_flux)
+      if(allocated(diss_perp)) deallocate (diss_perp)
+      if(allocated(diss_zed)) deallocate (diss_zed)
+      if(allocated(diss_vpa)) deallocate (diss_vpa)
+      if(allocated(drifts_term)) deallocate (drifts_term)
+      if(allocated(streaming_term)) deallocate (streaming_term)
+      if(allocated(nonlinear_term)) deallocate (nonlinear_term)
+      if(allocated(mirror_term)) deallocate (mirror_term)
+      if(allocated(weights_energy)) deallocate(weights_energy)
+      
+      if (allocated(phi_zero)) deallocate (phi_zero)
+      if (allocated(velocity_integral1)) deallocate (velocity_integral1)
 
    end subroutine deallocate_arrays
 

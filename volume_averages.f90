@@ -6,6 +6,7 @@ module volume_averages
    public :: flux_surface_average_ffs
 
    public :: mode_fac
+   public :: volume_total
 
    private
 
@@ -15,6 +16,7 @@ module volume_averages
    end interface
 
    real, dimension(:), allocatable :: mode_fac
+   real :: volume_total
    !> Fourier coefficients in y of the Jacobian;
    !> needed for full flux surface simulations
    complex, dimension(:, :), allocatable :: jacobian_ky
@@ -47,6 +49,7 @@ contains
       !dVolume contains the volume element jacob, which may vary with x or alpha
       ! NB: dVolume does not contain the factor dx, as this should always be uniform
       dVolume = spread(jacob * spread(delzed, 1, nalpha), 2, nakx)
+
       if (q_as_x) then
          dVolume = dVolume / (dqdrho * drhodpsi)
       end if
@@ -69,6 +72,7 @@ contains
       !avoid the double counting at the zed boundaries
       dVolume(:, :, -nzgrid) = 0.5 * dVolume(:, :, -nzgrid)
       dVolume(:, :, nzgrid) = 0.5 * dVolume(:, :, nzgrid)
+      volume_total = sum(dVolume(1,1,:))
 
    end subroutine init_volume_averages
 

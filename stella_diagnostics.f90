@@ -601,8 +601,8 @@ contains
 
    end subroutine diagnose_stella
 
-   !it takes input values of g, phi, factor_spec and returns sum_spec and the array
-   !TODO move the allocation of velocity_integral1 and weights to the module level
+   !the subroutine takes input values of g, phi, factor_spec and returns sum_spec, sum_total and the array term_kxkyz
+   !
    subroutine get_one_energy_term(g, term, factor_spec, sum_spec, sum_total, term_kxkyz)
       use mp, only: proc0
       use dist_fn_arrays, only: g0
@@ -615,6 +615,7 @@ contains
       use volume_averages, only: mode_fac
       use kt_grids, only: naky, nakx
       use stella_geometry, only: dVolume
+      use volume_averages, only: volume_total
 
       implicit none
       complex, dimension(:, :, -nzgrid:, :, vmu_lo%llim_proc:), intent(in) :: g, term
@@ -624,7 +625,6 @@ contains
       real, intent(out) :: sum_total
       real, dimension(:, :, -nzgrid:, :, :), intent(out) :: term_kxkyz
 
-      real :: volume_total
       integer :: ivmu, imu, iv, iz, it, is, ia, ikx
 
       weights_energy = 1.
@@ -650,14 +650,12 @@ contains
 
       if (proc0) then
          do is = 1, nspec
-            volume_total = 0.
             do it = 1, ntubes
                do iz = -nzgrid, nzgrid
                   do ikx = 1, nakx
                      term_kxkyz(:, ikx, iz, it, is) = 0.5 * mode_fac(:) * (real(factor_spec(is) * velocity_integral1(:, ikx, iz, it, is)))
-                     sum_spec(is) = sum_spec(is) + sum(term_kxkyz(:, ikx, iz, it, is) * dVolume(ia, ikx, iz))
+                     sum_spec(is) = sum_spec(is) + sum(term_kxkyz(:, ikx, iz, it, is) * dVolume(ia, 1, iz))
                   end do
-                  volume_total = volume_total + dVolume(ia, ikx, iz)
                end do
             end do
             sum_spec(is) = sum_spec(is) / volume_total

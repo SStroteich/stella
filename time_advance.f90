@@ -845,9 +845,6 @@ contains
       use sources, only: source_option_switch, source_option_projection
       use sources, only: source_option_krook
       use sources, only: update_tcorr_krook, project_out_zero
-      use hyper, only: advance_hyper_vpa, advance_hyper_zed
-      use hyper, only: hyp_zed, hyp_vpa
-      use dissipation, only: hyper_dissipation
       use mp, only: proc0, broadcast
       use run_parameters, only: fphi
       use g_tofrom_h, only: g_to_h
@@ -908,13 +905,7 @@ contains
             if (.not. fully_explicit) call advance_implicit(istep, phi, apar, gnew)
             if (.not. fully_implicit) call advance_explicit(gnew, restart_time_step, istep)
          end if
-         if (hyper_dissipation) then
-            ! for hyper-dissipation, need to be in k-alpha space
-            call g_to_h(gnew, phi, +fphi)
-            if (hyp_zed) call advance_hyper_zed(gnew)
-            if (hyp_vpa) call advance_hyper_vpa(gnew)
-            call g_to_h(gnew, phi, -fphi)
-         end if
+
 
          ! If the time step has not been restarted, the time advance was succesfull
          ! Otherwise, discard changes to gnew and start the time step again, fields
@@ -1452,6 +1443,7 @@ contains
       use kt_grids, only: swap_kxky_back
       use run_parameters, only: stream_implicit, mirror_implicit, drifts_implicit
       use dissipation, only: include_collisions, advance_collisions_explicit, collisions_implicit
+      use dissipation, only: hyper_dissipation
       use sources, only: source_option_switch, source_option_krook
       use sources, only: add_krook_operator
       use parallel_streaming, only: advance_parallel_streaming_explicit
@@ -1546,6 +1538,10 @@ contains
             call advance_parallel_streaming_explicit(gin, phi, rhs)
          end if
 
+         if (hyper_dissipation) then
+            call advance_hyper_explicit(gin, rhs)
+         end if
+
          !> if simulating a full flux surface (flux annulus), all terms to this point have been calculated
          !> in real-space in alpha (y); transform to kalpha (ky) space before adding to RHS of GKE.
          !> NB: it may be that for fully explicit calculation, this transform can be eliminated with additional code changes
@@ -1576,6 +1572,35 @@ contains
       nullify (rhs)
 
    end subroutine solve_gke
+
+   subroutine advance_hyper_explicit(gin, gout)
+
+      use stella_layouts, only: vmu_lo
+      use zgrid, only: nzgrid, ntubes
+      use kt_grids, only: naky, nakx
+      use hyper, only: advance_hyper_vpa, advance_hyper_zed
+      use hyper, only: hyp_zed, hyp_vpa
+
+      implicit none
+
+      complex, dimension(:, :, -nzgrid:, :, vmu_lo%llim_proc:), intent(in) :: gin
+      complex, dimension(:, :, -nzgrid:, :, vmu_lo%llim_proc:), intent(in out) :: gout
+
+      complex, dimension(:, :, :, :, :), allocatable :: dg
+
+      allocate (dg(naky, nakx, -nzgrid:nzgrid, ntubes, vmu_lo%llim_proc:vmu_lo%ulim_alloc)); dg = 0.0
+     
+      if (hyp_zed) then
+         call advance_hyper_zed(gin, dg)
+         gout = gout + dg
+      end if
+      if (hyp_vpa) then
+         call advance_hyper_vpa(gin, dg)
+         gout = gout + dg
+      end if
+      deallocate (dg)
+
+   end subroutine advance_hyper_explicit
 
    subroutine advance_wstar_explicit(phi, gout)
 

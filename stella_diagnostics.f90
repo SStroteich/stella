@@ -647,7 +647,6 @@ contains
       end do
       call integrate_vmu(g0, weights_energy, velocity_integral1)
       !TODO parallelize the following loop
-
       if (proc0) then
          do is = 1, nspec
             do it = 1, ntubes
@@ -786,7 +785,7 @@ contains
          end do
          call get_one_energy_term(g, g1, factor_spec, diss_perp, diss_perp_sum, diss_perp_kxkyz)
 
-         !Calculate hyper_z currently not working
+         !Calculate numerical dissipation in the zed direction
          if (hyp_zed) then
             g2 = g
             g3 = 0
@@ -798,7 +797,7 @@ contains
             end do
             call get_one_energy_term(g, g1, factor_spec, diss_zed, diss_zed_sum, diss_zed_kxkyz)
          end if
-         !Calculate dissipation in the parallel velocity
+         !Calculate numerical dissipation in the parallel velocity
          if (hyp_vpa) then
             g2 = g
             g3 = 0

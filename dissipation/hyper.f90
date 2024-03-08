@@ -154,10 +154,10 @@ contains
       end if
 
    end subroutine advance_hyper_dissipation
- 
+
    subroutine advance_hyper_vpa(g, dgdvpa)
-   !> computes the fourth derivative of g in vpa and returns this in dgdvpa
-   !> multiplied by the vpa diffusion coefficient
+      !> computes the fourth derivative of g in vpa and returns this in dgdvpa
+      !> multiplied by the vpa diffusion coefficient
       use stella_time, only: code_dt
       use zgrid, only: nzgrid
       use stella_layouts, only: vmu_lo, kxkyz_lo
@@ -179,7 +179,7 @@ contains
       call get_dgdvpa_fourth_order(g0v, g1v)
       call gather(kxkyz2vmu, g1v, dgdvpa)
       dgdvpa = -code_dt * D_vpa * dvpa**4 / 16 * dgdvpa
-      
+
       deallocate (g0v)
       deallocate (g1v)
 
@@ -213,8 +213,8 @@ contains
    end subroutine get_dgdvpa_fourth_order
 
    subroutine advance_hyper_zed(g, dgdz)
-   !> computes the fourth derivative of g in z and returns this in
-   !> dgdz multiplied by the z hyper diffusion coefficient
+      !> computes the fourth derivative of g in z and returns this in
+      !> dgdz multiplied by the z hyper diffusion coefficient
       use stella_time, only: code_dt
       use zgrid, only: nzgrid, delzed
       use stella_layouts, only: vmu_lo

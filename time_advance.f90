@@ -51,7 +51,9 @@ module time_advance
                          explicit_option_ssp32 = 4, &
                          explicit_option_ssp42 = 5, &
                          explicit_option_ssp52 = 6, &
-                         explicit_option_ssp43 = 7
+                         explicit_option_ssp43 = 7, &
+                         explicit_option_ssp93 = 8, &
+                         explicit_option_rk64 = 9
 
    real :: xdriftknob, ydriftknob, wstarknob
    logical :: flip_flop
@@ -149,7 +151,7 @@ contains
 
       logical :: taexist
 
-      type(text_option), dimension(8), parameter :: explicitopts = &
+      type(text_option), dimension(10), parameter :: explicitopts = &
                                                     (/text_option('default', explicit_option_rk3), &
                                                       text_option('rk3', explicit_option_rk3), &
                                                       text_option('rk2', explicit_option_rk2), &
@@ -157,7 +159,9 @@ contains
                                                       text_option('ssp32', explicit_option_ssp32), &
                                                       text_option('ssp42', explicit_option_ssp42), &
                                                       text_option('ssp52', explicit_option_ssp52), &
-                                                      text_option('ssp43', explicit_option_ssp43)/)
+                                                      text_option('ssp43', explicit_option_ssp43), &
+                                                      text_option('ssp93', explicit_option_ssp93), &
+                                                      text_option('rk64', explicit_option_rk64)/)
       character(10) :: explicit_option
 
       namelist /time_advance_knobs/ xdriftknob, ydriftknob, wstarknob, explicit_option, flip_flop
@@ -614,6 +618,9 @@ contains
       else if (.not. allocated(g4) .and. explicit_option_switch == explicit_option_ssp43) then
          allocate (g4(naky, nakx, -nzgrid:nzgrid, ntubes, vmu_lo%llim_proc:vmu_lo%ulim_alloc))
          g4 = 0.
+      else if (.not. allocated(g4) .and. explicit_option_switch == explicit_option_ssp93) then
+         allocate (g4(naky, nakx, -nzgrid:nzgrid, ntubes, vmu_lo%llim_proc:vmu_lo%ulim_alloc))
+         g4 = 0.         
       else
          allocate (g4(1, 1, 1, 1, 1))
       end if
@@ -1000,6 +1007,12 @@ contains
       case (explicit_option_ssp43)
          ! SSP(4,3)
          call advance_explicit_ssp43(g, restart_time_step, istep)
+      case (explicit_option_ssp93)
+         ! SSP(9,3)
+         call advance_explicit_ssp93(g, restart_time_step, istep)
+      case (explicit_option_rk64)
+         ! RK4 with 6 stages
+         call advance_explicit_rk64(g, restart_time_step, istep)
       end select
 
       !> enforce periodicity for periodic (including zonal) modes
@@ -1224,7 +1237,7 @@ contains
             call solve_gke(g2, g, restart_time_step, istep)
          end select
          if (restart_time_step) then
-            icnt = 1
+            icnt = 10
          else
             icnt = icnt + 1
          end if
@@ -1284,7 +1297,7 @@ contains
             call solve_gke(g3, g, restart_time_step, istep)
          end select
          if (restart_time_step) then
-            icnt = 1
+            icnt = 10
          else
             icnt = icnt + 1
          end if
@@ -1344,13 +1357,13 @@ contains
             if (RK_step) call mb_communicate(g3)
             call solve_gke(g3, g4, restart_time_step, istep)
          case (5)
-            ! g3 is h*k3
+            ! g4 is h*k4
             g4 = g3 + g4 / 4.
             if (RK_step) call mb_communicate(g4)
             call solve_gke(g4, g, restart_time_step, istep)
          end select
          if (restart_time_step) then
-            icnt = 1
+            icnt = 10
          else
             icnt = icnt + 1
          end if
@@ -1411,7 +1424,7 @@ contains
             call solve_gke(g3, g, restart_time_step, istep)
          end select
          if (restart_time_step) then
-            icnt = 1
+            icnt = 10
          else
             icnt = icnt + 1
          end if
@@ -1421,6 +1434,157 @@ contains
       g = 111./1331.*g0 + 260./1331.*(g0 + 11./20.*g4) + 960./1331.*(g3 + 11./20.*g)
 
    end subroutine advance_explicit_ssp43
+
+
+    !> Strong stability preserving RK (9,3)
+   subroutine advance_explicit_ssp93(g, restart_time_step, istep)
+
+      use dist_fn_arrays, only: g0, g1, g2, g3, g4
+      use zgrid, only: nzgrid
+      use stella_layouts, only: vmu_lo
+      use multibox, only: RK_step
+
+      implicit none
+
+      complex, dimension(:, :, -nzgrid:, :, vmu_lo%llim_proc:), intent(in out) :: g
+      logical, intent(in out) :: restart_time_step
+      integer, intent(in) :: istep
+
+      integer :: icnt
+
+      ! if CFL condition is violated by nonlinear term
+      ! then must modify time step size and restart time step
+      ! assume false and test
+      restart_time_step = .false.
+
+      if (RK_step) call mb_communicate(g)
+
+      g0 = g
+
+      icnt = 1
+      ! SSP rk3 algorithm to advance explicit part of code
+      ! if GK equation written as dg/dt = rhs - vpar . grad h,
+      ! solve_gke returns rhs*dt
+      do while (icnt <= 9)
+         select case (icnt)
+         case (1)
+            call solve_gke(g0, g3, restart_time_step, istep)
+            g1 = g0 + 1./6. * g3
+         case (2)
+            if (RK_step) call mb_communicate(g1)
+            call solve_gke(g1, g2, restart_time_step, istep)
+            g4 = g1 + 1./6. * g2
+         case (3)
+            if (RK_step) call mb_communicate(g4)
+            call solve_gke(g4, g2, restart_time_step, istep)
+            g1 = g4 + 1./6. * g2
+         case (4)
+            if (RK_step) call mb_communicate(g1)
+            call solve_gke(g1, g2, restart_time_step, istep)
+            g1 = g1 + 1./6. * g2
+         case (5)
+            if (RK_step) call mb_communicate(g1)
+            call solve_gke(g1, g2, restart_time_step, istep)
+            g1 = 1./5. * g0 + 4./5. * (g1 + 1./6. * g2)
+         case (6)
+            if (RK_step) call mb_communicate(g1)
+            call solve_gke(g1, g2, restart_time_step, istep)
+            g1 = 1./4. * (g0 + 1./6. * g3) + 3./4. * (g1 + 1./6. * g2)
+         case (7)
+            if (RK_step) call mb_communicate(g1)
+            call solve_gke(g1, g2, restart_time_step, istep)
+            g1 = 1./3. * g4 + 2./3. * (g1 + 1./6. * g2)
+         case (8)
+            if (RK_step) call mb_communicate(g1)
+            call solve_gke(g1, g2, restart_time_step, istep)
+            g1 = g1 + 1./6. * g2
+         case (9)
+            if (RK_step) call mb_communicate(g1)
+            call solve_gke(g1, g2, restart_time_step, istep)
+         end select
+         if (restart_time_step) then
+            icnt = 10
+         else
+            icnt = icnt + 1
+         end if
+      end do
+
+      ! this is gbar at intermediate time level
+      g = g1 + 1./6. * g2
+
+   end subroutine advance_explicit_ssp93
+
+   subroutine advance_explicit_rk64(g, restart_time_step, istep)
+
+      use dist_fn_arrays, only: g0, g1, g2, g3
+      use zgrid, only: nzgrid
+      use stella_layouts, only: vmu_lo
+      use multibox, only: RK_step
+
+      implicit none
+
+      complex, dimension(:, :, -nzgrid:, :, vmu_lo%llim_proc:), intent(in out) :: g
+      logical, intent(in out) :: restart_time_step
+      integer, intent(in) :: istep
+
+      integer :: icnt
+
+      !> RK_step is false unless in multibox mode
+      if (RK_step) call mb_communicate(g)
+
+      g0 = g
+      icnt = 1
+      
+      !> RK64 algorithm to advance explicit part of code see https://doi.org/10.48550/arXiv.1403.7402
+      !> if GK equation written as dg/dt = rhs - vpar . grad h,
+      !> solve_gke returns rhs*dt
+      do while (icnt <= 6)
+         select case (icnt)
+         case (1)
+            call solve_gke(g0, g1, restart_time_step, istep)
+         case (2)
+            ! g1 is h*k1
+            g2 = g0 + 0.16791847 * g1
+            if (RK_step) call mb_communicate(g2)
+            call solve_gke(g2, g3, restart_time_step, istep)
+            g1 = -0.15108371 * g1 + 0.7538468 * g3
+         case (3)
+            ! g3 is h*k2
+            g2 = g0 + 0.4829844 * g3
+            if (RK_step) call mb_communicate(g2)
+            call solve_gke(g2, g3, restart_time_step, istep)
+            g1 = g1 - 0.3601660 *g3
+         case (4)
+            ! g3 is h*k3
+            g2 = g0 + 0.7054607 * g3
+            if (RK_step) call mb_communicate(g2)
+            call solve_gke(g2, g3, restart_time_step, istep)
+            g1 = g1 + 0.5269677*g3
+         case (5)
+            ! g3 is h*k4
+            g2 = g0 + 0.0929587 * g3
+            if (RK_step) call mb_communicate(g2)
+            call solve_gke(g2, g3, restart_time_step, istep)
+         case (6)
+            ! g3 is h*k5
+            g2 = g0 + 0.7621008 * g3
+            if (RK_step) call mb_communicate(g2)
+            call solve_gke(g2, g3, restart_time_step, istep)
+            g1 = g1 + 0.2304351 * g3
+         end select
+         if (restart_time_step) then
+            ! If the code_dt is reset, we need to quit this loop and restart the timestep again
+            icnt = 10
+         else
+            icnt = icnt + 1
+         end if
+      end do
+
+      !> this is gbar at intermediate time level
+      g = g0 + g1
+
+   end subroutine advance_explicit_rk64
+
 
    !> solve_gke accepts as argument gin, the guiding centre distribution function in k-space,
    !> and returns rhs_ky, the right-hand side of the gyrokinetic equation in k-space;

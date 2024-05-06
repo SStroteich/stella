@@ -152,16 +152,16 @@ contains
       logical :: taexist
 
       type(text_option), dimension(10), parameter :: explicitopts = &
-                                                    (/text_option('default', explicit_option_rk3), &
-                                                      text_option('rk3', explicit_option_rk3), &
-                                                      text_option('rk2', explicit_option_rk2), &
-                                                      text_option('rk4', explicit_option_rk4), &
-                                                      text_option('ssp32', explicit_option_ssp32), &
-                                                      text_option('ssp42', explicit_option_ssp42), &
-                                                      text_option('ssp52', explicit_option_ssp52), &
-                                                      text_option('ssp43', explicit_option_ssp43), &
-                                                      text_option('ssp93', explicit_option_ssp93), &
-                                                      text_option('rk64', explicit_option_rk64)/)
+                                                     (/text_option('default', explicit_option_rk3), &
+                                                       text_option('rk3', explicit_option_rk3), &
+                                                       text_option('rk2', explicit_option_rk2), &
+                                                       text_option('rk4', explicit_option_rk4), &
+                                                       text_option('ssp32', explicit_option_ssp32), &
+                                                       text_option('ssp42', explicit_option_ssp42), &
+                                                       text_option('ssp52', explicit_option_ssp52), &
+                                                       text_option('ssp43', explicit_option_ssp43), &
+                                                       text_option('ssp93', explicit_option_ssp93), &
+                                                       text_option('rk64', explicit_option_rk64)/)
       character(10) :: explicit_option
 
       namelist /time_advance_knobs/ xdriftknob, ydriftknob, wstarknob, explicit_option, flip_flop
@@ -620,7 +620,7 @@ contains
          g4 = 0.
       else if (.not. allocated(g4) .and. explicit_option_switch == explicit_option_ssp93) then
          allocate (g4(naky, nakx, -nzgrid:nzgrid, ntubes, vmu_lo%llim_proc:vmu_lo%ulim_alloc))
-         g4 = 0.         
+         g4 = 0.
       else
          allocate (g4(1, 1, 1, 1, 1))
       end if
@@ -1434,8 +1434,7 @@ contains
 
    end subroutine advance_explicit_ssp43
 
-
-    !> Strong stability preserving RK (9,3)
+   !> Strong stability preserving RK (9,3)
    subroutine advance_explicit_ssp93(g, restart_time_step, istep)
 
       use dist_fn_arrays, only: g0, g1, g2, g3, g4
@@ -1468,35 +1467,35 @@ contains
          select case (icnt)
          case (1)
             call solve_gke(g0, g3, restart_time_step, istep)
-            g1 = g0 + 1./6. * g3
+            g1 = g0 + 1./6.*g3
          case (2)
             if (RK_step) call mb_communicate(g1)
             call solve_gke(g1, g2, restart_time_step, istep)
-            g4 = g1 + 1./6. * g2
+            g4 = g1 + 1./6.*g2
          case (3)
             if (RK_step) call mb_communicate(g4)
             call solve_gke(g4, g2, restart_time_step, istep)
-            g1 = g4 + 1./6. * g2
+            g1 = g4 + 1./6.*g2
          case (4)
             if (RK_step) call mb_communicate(g1)
             call solve_gke(g1, g2, restart_time_step, istep)
-            g1 = g1 + 1./6. * g2
+            g1 = g1 + 1./6.*g2
          case (5)
             if (RK_step) call mb_communicate(g1)
             call solve_gke(g1, g2, restart_time_step, istep)
-            g1 = 1./5. * g0 + 4./5. * (g1 + 1./6. * g2)
+            g1 = 1./5.*g0 + 4./5.*(g1 + 1./6.*g2)
          case (6)
             if (RK_step) call mb_communicate(g1)
             call solve_gke(g1, g2, restart_time_step, istep)
-            g1 = 1./4. * (g0 + 1./6. * g3) + 3./4. * (g1 + 1./6. * g2)
+            g1 = 1./4.*(g0 + 1./6.*g3) + 3./4.*(g1 + 1./6.*g2)
          case (7)
             if (RK_step) call mb_communicate(g1)
             call solve_gke(g1, g2, restart_time_step, istep)
-            g1 = 1./3. * g4 + 2./3. * (g1 + 1./6. * g2)
+            g1 = 1./3.*g4 + 2./3.*(g1 + 1./6.*g2)
          case (8)
             if (RK_step) call mb_communicate(g1)
             call solve_gke(g1, g2, restart_time_step, istep)
-            g1 = g1 + 1./6. * g2
+            g1 = g1 + 1./6.*g2
          case (9)
             if (RK_step) call mb_communicate(g1)
             call solve_gke(g1, g2, restart_time_step, istep)
@@ -1509,7 +1508,7 @@ contains
       end do
 
       ! this is gbar at intermediate time level
-      g = g1 + 1./6. * g2
+      g = g1 + 1./6.*g2
 
    end subroutine advance_explicit_ssp93
 
@@ -1533,7 +1532,7 @@ contains
 
       g0 = g
       icnt = 1
-      
+
       !> RK64 algorithm to advance explicit part of code see https://doi.org/10.48550/arXiv.1403.7402
       !> if GK equation written as dg/dt = rhs - vpar . grad h,
       !> solve_gke returns rhs*dt
@@ -1552,13 +1551,13 @@ contains
             g2 = g0 + 0.4829844 * g3
             if (RK_step) call mb_communicate(g2)
             call solve_gke(g2, g3, restart_time_step, istep)
-            g1 = g1 - 0.3601660 *g3
+            g1 = g1 - 0.3601660 * g3
          case (4)
             ! g3 is h*k3
             g2 = g0 + 0.7054607 * g3
             if (RK_step) call mb_communicate(g2)
             call solve_gke(g2, g3, restart_time_step, istep)
-            g1 = g1 + 0.5269677*g3
+            g1 = g1 + 0.5269677 * g3
          case (5)
             ! g3 is h*k4
             g2 = g0 + 0.0929587 * g3
@@ -1583,7 +1582,6 @@ contains
       g = g0 + g1
 
    end subroutine advance_explicit_rk64
-
 
    !> solve_gke accepts as argument gin, the guiding centre distribution function in k-space,
    !> and returns rhs_ky, the right-hand side of the gyrokinetic equation in k-space;

@@ -913,7 +913,6 @@ contains
             if (.not. fully_implicit) call advance_explicit(gnew, restart_time_step, istep)
          end if
 
-
          ! If the time step has not been restarted, the time advance was succesfull
          ! Otherwise, discard changes to gnew and start the time step again, fields
          ! will have to be recalculated
@@ -1753,7 +1752,7 @@ contains
       complex, dimension(:, :, :, :, :), allocatable :: dg
 
       allocate (dg(naky, nakx, -nzgrid:nzgrid, ntubes, vmu_lo%llim_proc:vmu_lo%ulim_alloc)); dg = 0.0
-     
+
       if (hyp_zed) then
          call advance_hyper_zed(gin, dg)
          gout = gout + dg

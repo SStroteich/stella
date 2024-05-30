@@ -15,6 +15,8 @@ option(STELLA_ENABLE_FFT "Enable FFTs" ON)
 option(STELLA_ENABLE_NETCDF "Enable NetCDF" ON)
 option(STELLA_ENABLE_DOUBLE "Promotes precisions of real and complex to double" ON)
 option(STELLA_ENABLE_PETSC "Enable PETSc" OFF)
+option(STELLA_ENABLE_SLEPC "Enable SLEPc" OFF)
+
 
 # Options for utils internal library
 option(STELLA_ENABLE_LOCAL_SPFUNC "Enable local special functions" OFF)
@@ -80,6 +82,7 @@ set(STELLA_SOURCES_f90
 
 # Sources that _do_ need preprocessing
 set(STELLA_SOURCES_fpp
+  eigen_values.fpp
   fields.fpp
   response_matrix.fpp
   sfincs_interface.fpp
@@ -201,7 +204,17 @@ endif()
 
 if (STELLA_ENABLE_PETSC)
   find_package(PETSc REQUIRED)
-  target_link_libraries(libstella PUBLIC PETSc::PETSc)
+  target_link_libraries(libstella PUBLIC ${PETSC_LIBRARIES})
+  #message(STATUS "PETSc libraries: ${PETSC_LIBRARIES}")
+  target_include_directories(libstella PUBLIC ${PETSC_INCLUDES})
+  #message(STATUS "PETSc include dirs: ${PETSC_INCLUDES}")
+endif()
+if (STELLA_ENABLE_SLEPC)
+  find_package(SLEPc REQUIRED)
+  target_link_libraries(libstella PUBLIC ${SLEPC_LIBRARIES})
+  #message(STATUS "SLEPc libraries: ${SLEPC_LIBRARIES}")
+  target_include_directories(libstella PUBLIC ${SLEPC_INCLUDE_DIRS})
+  #message(STATUS "SLEPc include dirs: ${SLEPC_INCLUDE_DIRS}")
 endif()
 
 add_subdirectory(externals/git_version)

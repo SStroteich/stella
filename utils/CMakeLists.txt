@@ -1,4 +1,5 @@
 set(STELLA_UTILS_SOURCES_f90
+  abstract_config.f90
   convert.f90
   fft_work.f90
   gauss_quad.f90

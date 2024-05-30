@@ -33,8 +33,8 @@ program stella
 
    !> Initialize stella
    call init_stella(istep0, get_git_version(), get_git_date())
-   if(eigenvalue_option) then
-      if(proc0) write(*,*) 'Eigenvalue calculation is not implemented yet'
+   if (eigenvalue_option) then
+      if (proc0) write (*, *) 'Eigenvalue calculation is not implemented yet'
       call finish_stella(last_call=.true.)
    else
       !> Diagnose stella

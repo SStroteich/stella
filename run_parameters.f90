@@ -25,6 +25,7 @@ module run_parameters
    public :: maxwellian_normalization
    public :: time_upwind_plus, time_upwind_minus
    public :: zed_upwind_plus, zed_upwind_minus
+   public :: eigenvalue_option
 
    private
 
@@ -44,6 +45,7 @@ module run_parameters
    logical :: ky_solve_real
    logical :: use_deltaphi_for_response_matrix
    logical :: maxwellian_normalization
+   logical :: eigenvalue_option
    real :: avail_cpu_time
    integer :: nstep, ky_solve_radial
    integer :: rng_seed
@@ -104,7 +106,7 @@ contains
          mirror_semi_lagrange, mirror_linear_interp, &
          zed_upwind, vpa_upwind, time_upwind, &
          fields_kxkyz, mat_gen, mat_read, rng_seed, &
-         ky_solve_radial, ky_solve_real
+         ky_solve_radial, ky_solve_real, eigenvalue_option
 
       if (proc0) then
 
@@ -130,6 +132,7 @@ contains
          rng_seed = -1 !negative values use current time as seed
          ky_solve_radial = 0
          ky_solve_real = .false.
+         eigenvalue_option = .false.
          mat_gen = .false.
          mat_read = .false.
 
@@ -267,6 +270,7 @@ contains
       call broadcast(rng_seed)
       call broadcast(ky_solve_radial)
       call broadcast(ky_solve_real)
+      call broadcast(eigenvalue_option)
       call broadcast(mat_gen)
       call broadcast(mat_read)
 

@@ -4,7 +4,7 @@ program stella
    use job_manage, only: time_message, checkstop, job_fork
    use job_manage, only: checktime
    use run_parameters, only: nstep, tend, fphi, fapar
-   use run_parameters, only: avail_cpu_time
+   use run_parameters, only: avail_cpu_time, eigenvalue_option
    use stella_time, only: update_time, code_time, code_dt, checkcodedt
    use dist_redistribute, only: kxkyz2vmu
    use time_advance, only: advance_stella
@@ -14,6 +14,7 @@ program stella
    use file_utils, only: error_unit, flush_output_file
    use git_version, only: get_git_version, get_git_date
    use convergence, only: convergence_switch, testing_convergence
+   use mp, only: proc0
 
    implicit none
 
@@ -32,40 +33,44 @@ program stella
 
    !> Initialize stella
    call init_stella(istep0, get_git_version(), get_git_date())
+   if(eigenvalue_option) then
+      if(proc0) write(*,*) 'Eigenvalue calculation is not implemented yet'
+      call finish_stella(last_call=.true.)
+   else
+      !> Diagnose stella
+      if (debug) write (*, *) 'stella::diagnose_stella'
+      if (istep0 == 0) call diagnose_stella(istep0)
 
-   !> Diagnose stella
-   if (debug) write (*, *) 'stella::diagnose_stella'
-   if (istep0 == 0) call diagnose_stella(istep0)
-
-   !> Advance stella until istep=nstep
-   if (debug) write (*, *) 'stella::advance_stella'
-   istep = istep0 + 1
-   do while ((code_time <= tend .AND. tend > 0) .OR. (istep <= nstep .AND. nstep > 0))
-      if (debug) write (*, *) 'istep = ', istep
-      if (mod(istep, 10) == 0) then
-         call checkstop(stop_stella)
-         call checktime(avail_cpu_time, stop_stella)
-         call checkcodedt(stop_stella)
-      end if
-      if (stop_stella .and. mod(istep, nwrite) == 1) exit
-      if (convergence_switch) then
-         call time_message(.false., time_convergence, ' convergence')
-         call testing_convergence(istep, stop_stella)
-         call time_message(.false., time_convergence, ' convergence')
-      end if
-      call advance_stella(istep, stop_stella)
-      call update_time
-      if (nsave > 0 .and. mod(istep, nsave) == 0) then
-         call scatter(kxkyz2vmu, gnew, gvmu)
-         call stella_save_for_restart(gvmu, istep, code_time, code_dt, istatus)
-      end if
-      call time_message(.false., time_diagnostics, ' diagnostics')
-      call diagnose_stella(istep)
-      call time_message(.false., time_diagnostics, ' diagnostics')
-      ierr = error_unit()
-      call flush_output_file(ierr)
-      istep = istep + 1
-   end do
+      !> Advance stella until istep=nstep
+      if (debug) write (*, *) 'stella::advance_stella'
+      istep = istep0 + 1
+      do while ((code_time <= tend .AND. tend > 0) .OR. (istep <= nstep .AND. nstep > 0))
+         if (debug) write (*, *) 'istep = ', istep
+         if (mod(istep, 10) == 0) then
+            call checkstop(stop_stella)
+            call checktime(avail_cpu_time, stop_stella)
+            call checkcodedt(stop_stella)
+         end if
+         if (stop_stella .and. mod(istep, nwrite) == 1) exit
+         if (convergence_switch) then
+            call time_message(.false., time_convergence, ' convergence')
+            call testing_convergence(istep, stop_stella)
+            call time_message(.false., time_convergence, ' convergence')
+         end if
+         call advance_stella(istep, stop_stella)
+         call update_time
+         if (nsave > 0 .and. mod(istep, nsave) == 0) then
+            call scatter(kxkyz2vmu, gnew, gvmu)
+            call stella_save_for_restart(gvmu, istep, code_time, code_dt, istatus)
+         end if
+         call time_message(.false., time_diagnostics, ' diagnostics')
+         call diagnose_stella(istep)
+         call time_message(.false., time_diagnostics, ' diagnostics')
+         ierr = error_unit()
+         call flush_output_file(ierr)
+         istep = istep + 1
+      end do
+   end if
 
    !> Finish stella
    if (debug) write (*, *) 'stella::finish_stella'

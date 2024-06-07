@@ -14,6 +14,7 @@ program stella
    use file_utils, only: error_unit, flush_output_file
    use git_version, only: get_git_version, get_git_date
    use convergence, only: convergence_switch, testing_convergence
+   use eigen_values, only: eigval_functional, run_eigensolver
    use mp, only: proc0
 
    implicit none
@@ -34,8 +35,7 @@ program stella
    !> Initialize stella
    call init_stella(istep0, get_git_version(), get_git_date())
    if(eigenvalue_option) then
-      if(proc0) write(*,*) 'Eigenvalue calculation is not implemented yet'
-      call finish_stella(last_call=.true.)
+      if(eigval_functional()) call run_eigensolver
    else
       !> Diagnose stella
       if (debug) write (*, *) 'stella::diagnose_stella'
@@ -574,6 +574,7 @@ contains
       use multibox, only: finish_multibox, time_multibox
       use run_parameters, only: stream_implicit, driftkinetic_implicit, drifts_implicit
       use implicit_solve, only: time_implicit_advance
+      use eigen_values, only: time_eigval
 
       implicit none
 
@@ -657,6 +658,7 @@ contains
          write (*, fmt=101) 'radial var:', time_gke(1, 10) / 60., 'min'
          write (*, fmt=101) 'multibox comm:', time_multibox(1, 1) / 60., 'min'
          write (*, fmt=101) 'multibox krook:', time_multibox(1, 2) / 60., 'min'
+         write (*, fmt=101) 'eigen value:', time_eigval(1) / 60., 'min'
          write (*, fmt=101) 'total implicit:', time_gke(1, 9) / 60., 'min'
          write (*, fmt=101) 'total explicit:', time_gke(1, 8) / 60., 'min'
          write (*, fmt=101) 'total:', time_total(1) / 60., 'min'
@@ -701,5 +703,6 @@ contains
    !   deallocate (g_vmu_lo, g_kxyz_lo)
 
    ! end subroutine test_redistribute
+
 
 end program stella

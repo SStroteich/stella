@@ -3,6 +3,7 @@ module time_advance
 
    public :: init_time_advance, finish_time_advance
    public :: advance_stella
+   public :: advance_linear
    public :: time_gke, time_parallel_nl
    public :: checksum
    public :: advance_wdriftx_explicit
@@ -960,6 +961,115 @@ contains
 
    end subroutine advance_stella
 
+
+subroutine advance_linear(istep)
+
+      use dist_fn_arrays, only: gold, gnew
+      use fields_arrays, only: phi, apar
+      use fields_arrays, only: phi_old
+      use fields, only: advance_fields, fields_updated
+      use run_parameters, only: fully_explicit, fully_implicit
+      use physics_flags, only: nonlinear
+      use multibox, only: RK_step
+      use sources, only: include_qn_source, update_quasineutrality_source
+      use sources, only: source_option_switch, source_option_projection
+      use sources, only: source_option_krook
+      use sources, only: update_tcorr_krook, project_out_zero
+      use mp, only: proc0, broadcast
+      use run_parameters, only: fphi
+      use g_tofrom_h, only: g_to_h
+
+      implicit none
+
+
+      integer, intent(in) :: istep
+
+      logical :: restart_time_step, time_advance_successful
+      logical :: nonlinear_temp
+      integer :: count_restarts
+
+      !> unless running in multibox mode, no need to worry about
+      !> mb_communicate calls as the subroutine is immediately exited
+      !> if not in multibox mode.
+      if (.not. RK_step) then
+         if (debug) write (*, *) 'time_advance::multibox'
+         call mb_communicate(gnew)
+      end if
+      nonlinear_temp = nonlinear
+      nonlinear = .false.
+
+      !> save value of phi
+      !> for use in diagnostics (to obtain frequency)
+      phi_old = phi
+
+      ! Flag which is set to true once we've taken a step without needing to
+      ! reset dt (which can be done by the nonlinear term(s))
+      time_advance_successful = .false.
+
+      ! If cfl_cushion_lower is chosen too close to cfl_cushion_upper, then
+      ! we might get stuck restarting the time step over and over, so exit stella
+      count_restarts = 1
+
+      ! Attempt the Lie or flip-flop time advance until we've done it without the
+      ! timestep changing.
+      do while (.not. time_advance_successful)
+
+         ! If we've already attempted a time advance then we've updated gnew, so reset it.
+         gnew = gold
+
+         ! Ensure fields are consistent with gnew.
+         call advance_fields(gnew, phi, apar, dist='gbar')
+
+         ! Keep track whether any routine wants to modify the time step
+         restart_time_step = .false.
+
+         !> reverse the order of operations every time step
+         !> as part of alternating direction operator splitting
+         !> this is needed to ensure 2nd order accuracy in time
+         if (mod(istep, 2) == 1 .or. .not. flip_flop) then
+
+            !> Advance the explicit parts of the GKE
+            if (debug) write (*, *) 'time_advance::advance_explicit'
+            if (.not. fully_implicit) call advance_explicit(gnew, restart_time_step, istep)
+
+            !> Use operator splitting to separately evolve all terms treated implicitly
+            if (.not. restart_time_step .and. .not. fully_explicit) call advance_implicit(istep, phi, apar, gnew)
+         else
+            if (.not. fully_explicit) call advance_implicit(istep, phi, apar, gnew)
+            if (.not. fully_implicit) call advance_explicit(gnew, restart_time_step, istep)
+         end if
+
+         ! If the time step has not been restarted, the time advance was succesfull
+         ! Otherwise, discard changes to gnew and start the time step again, fields
+         ! will have to be recalculated
+         if (.not. restart_time_step) then
+            time_advance_successful = .true.
+         else
+            count_restarts = count_restarts + 1
+            fields_updated = .false.
+         end if
+      end do
+
+      ! presumably this is to do with the radially global version of the code?
+      ! perhaps it could be packaged together with thee update_delay_krook code
+      ! below and made into a single call where all of this happens so that
+      ! users of the flux tube version of the code need not worry about it.
+      if (source_option_switch == source_option_projection) then
+         call project_out_zero(gold, gnew)
+         fields_updated = .false.
+      end if
+
+      gold = gnew
+
+      !> Ensure fields are updated so that omega calculation is correct.
+      call advance_fields(gnew, phi, apar, dist='gbar')
+
+      !update the delay parameters for the Krook operator
+      if (source_option_switch == source_option_krook) call update_tcorr_krook(gnew)
+      if (include_qn_source) call update_quasineutrality_source
+      nonlinear = nonlinear_temp
+
+   end subroutine advance_linear
    !> advance_explicit takes as input the guiding centre distribution function
    !> in k-space and updates it to account for all of the terms in the GKE that
    !> are advanced explicitly in time

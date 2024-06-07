@@ -34,8 +34,8 @@ program stella
 
    !> Initialize stella
    call init_stella(istep0, get_git_version(), get_git_date())
-   if(eigenvalue_option) then
-      if(eigval_functional()) call run_eigensolver
+   if (eigenvalue_option) then
+      if (eigval_functional()) call run_eigensolver
    else
       !> Diagnose stella
       if (debug) write (*, *) 'stella::diagnose_stella'
@@ -703,6 +703,5 @@ contains
    !   deallocate (g_vmu_lo, g_kxyz_lo)
 
    ! end subroutine test_redistribute
-
 
 end program stella

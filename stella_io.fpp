@@ -37,13 +37,13 @@ module stella_io
 
    integer :: code_id
 
-     !> A custom type to look after the netcdf ids for the eigenvalue file
-  type EigNetcdfID
-     integer :: ncid, conv_dim_id, zed_dim_id, ri_dim_id
-     integer :: omega_var_id, zed_var_id, phi_var_id
-     integer :: apar_var_id, bpar_var_id, conv_var_id
-     integer :: nconv_count
-  end type EigNetcdfID
+   !> A custom type to look after the netcdf ids for the eigenvalue file
+   type EigNetcdfID
+      integer :: ncid, conv_dim_id, zed_dim_id, ri_dim_id
+      integer :: omega_var_id, zed_var_id, phi_var_id
+      integer :: apar_var_id, bpar_var_id, conv_var_id
+      integer :: nconv_count
+   end type EigNetcdfID
 
    !> Write a `complex` array to netcdf
    !>
@@ -181,8 +181,8 @@ contains
 # endif
    end subroutine write_grids
 
-     !> Initialises a file for saving output of eigensolver to netcdf
-   subroutine init_eigenfunc_file(fname,fphi,fapar,fbpar,IDs)
+   !> Initialises a file for saving output of eigensolver to netcdf
+   subroutine init_eigenfunc_file(fname, fphi, fapar, fbpar, IDs)
 # ifdef NETCDF
       use file_utils, only: error_unit
       use neasyf, only: neasyf_dim, neasyf_write, neasyf_open
@@ -197,7 +197,7 @@ contains
 # endif
 
       !Set nconv counter to 0
-      IDs%nconv_count=0
+      IDs%nconv_count = 0
 
 # ifdef NETCDF
       !/Make file
@@ -210,66 +210,61 @@ contains
 # endif
    end subroutine init_eigenfunc_file
 
-  !> Add an eigenpairs data to file
-   subroutine add_eigenpair_to_file(eval,IDs, local_conv)
+   !> Add an eigenpairs data to file
+   subroutine add_eigenpair_to_file(eval, IDs, local_conv)
 # ifdef NETCDF
       use neasyf, only: neasyf_write
 # endif
-      complex, dimension(:), intent(in) :: eval 
+      complex, dimension(:), intent(in) :: eval
       type(EigNetcdfID), intent(inout) :: IDs
       real, dimension(:), intent(in) :: local_conv
 # ifdef NETCDF
-      real, dimension(:,:), allocatable :: ri_omega
+      real, dimension(:, :), allocatable :: ri_omega
       integer :: ierr
       integer :: nconv_count
 # endif
       IDs%nconv_count = size(local_conv)
 
-      if(.not.allocated(ri_omega)) then
-         allocate(ri_omega(2,IDs%nconv_count))
+      if (.not. allocated(ri_omega)) then
+         allocate (ri_omega(2, IDs%nconv_count))
       end if
-      
-
-
 
 # ifdef NETCDF
 
-    !Now we can write data
-    !/Conv
+      !Now we can write data
+      !/Conv
       call neasyf_write(IDs%ncid, "conv", local_conv, dim_names=["conv"], long_name="Convergence index")
 
-
-    !/Omega
-      ri_omega(1,:)=real(eval)
-      ri_omega(2,:)=aimag(eval)
+      !/Omega
+      ri_omega(1, :) = real(eval)
+      ri_omega(2, :) = aimag(eval)
       call neasyf_write(IDs%ncid, "omega", ri_omega, dim_names=[character(len=4):: "ri", "conv"], &
-                                long_name="Complex frequency", units="aref/vtref")
-                       
-      if(allocated(ri_omega)) then
-         deallocate(ri_omega)
+                        long_name="Complex frequency", units="aref/vtref")
+
+      if (allocated(ri_omega)) then
+         deallocate (ri_omega)
       end if
 # endif
-   end subroutine add_eigenpair_to_file  
+   end subroutine add_eigenpair_to_file
 
-     !> Close the eigenfunction file
-subroutine finish_eigenfunc_file(IDs)
+   !> Close the eigenfunction file
+   subroutine finish_eigenfunc_file(IDs)
 # ifdef NETCDF
       use neasyf, only: neasyf_close
       use mp, only: proc0
 # endif
-   implicit none
-   type(EigNetcdfID), intent(inout) :: IDs
+      implicit none
+      type(EigNetcdfID), intent(inout) :: IDs
 #ifdef NETCDF
-   integer :: ierr
+      integer :: ierr
 
-
-    !/Now close the file
-   if (proc0) then
-      call neasyf_close(IDs%ncid)
-   end if
+      !/Now close the file
+      if (proc0) then
+         call neasyf_close(IDs%ncid)
+      end if
 
 #endif
-end subroutine finish_eigenfunc_file 
+   end subroutine finish_eigenfunc_file
 
    subroutine finish_stella_io
       use mp, only: proc0

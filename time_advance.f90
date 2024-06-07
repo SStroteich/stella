@@ -961,8 +961,7 @@ contains
 
    end subroutine advance_stella
 
-
-subroutine advance_linear(istep)
+   subroutine advance_linear(istep)
 
       use dist_fn_arrays, only: gold, gnew
       use fields_arrays, only: phi, apar
@@ -980,7 +979,6 @@ subroutine advance_linear(istep)
       use g_tofrom_h, only: g_to_h
 
       implicit none
-
 
       integer, intent(in) :: istep
 

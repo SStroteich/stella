@@ -766,8 +766,8 @@ contains
          do ialpha = 1, nalpha
             theta_pest_target = alpha(ialpha) + iota * zeta0
             ! Guess that theta_vmec will be within 0.3 radians of theta_pest:
-            theta_vmec_min = theta_pest_target - 0.3
-            theta_vmec_max = theta_pest_target + 0.3
+            theta_vmec_min = theta_pest_target - 1.0
+            theta_vmec_max = theta_pest_target + 1.0
 
             call get_root(theta_vmec_min, theta_vmec_max, theta_vmec(ialpha, izeta), theta_converged)
             ! In the 4th argument, we are telling the root-finder (fzero) to use theta_pest as the initial guess for theta_vmec.

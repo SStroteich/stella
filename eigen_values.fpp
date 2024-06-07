@@ -7,7 +7,7 @@ module eigen_values
   use petscmat
   use slepceps
 
-  implicit none
+   implicit none
 
 !Allows us to use SLEPC_VERSION_MAJOR etc. to automatically
 !disable unsupported features
@@ -47,85 +47,85 @@ module eigen_values
 
   real, dimension(2) :: time_eigval = 0.
 
-  !//////////////////
-  !Slepc related configuration parameters
-  !//////////////////
-  !Solver type
-  integer, parameter :: &        !Note not all of these may be available
-       SolverTypePower=1,&
-       SolverTypeSubspace=2,&
-       SolverTypeArnoldi=3,&
-       SolverTypeLanczos=4,&
-       SolverTypeKrylovSchur=5,&
-       SolverTypeGD=6,&
-       SolverTypeJD=7,&
-       SolverTypeRQCG=8,&
-       SolverTypeCISS=9,&
-       SolverTypeLapack=10,&
-       SolverTypeArpack=11,&
-       SolverTypeBlzpack=12,&
-       SolverTypeTrlan=13,&
-       SolverTypeBlopex=14,&
-       SolverTypePrimme=15,&
-       SolverTypeFeast=16,&
-       SolverTypeNotSpecified=17 !=>Use slepc default
-  integer :: solver_option_switch
+   !//////////////////
+   !Slepc related configuration parameters
+   !//////////////////
+   !Solver type
+   integer, parameter :: &        !Note not all of these may be available
+      SolverTypePower = 1, &
+      SolverTypeSubspace = 2, &
+      SolverTypeArnoldi = 3, &
+      SolverTypeLanczos = 4, &
+      SolverTypeKrylovSchur = 5, &
+      SolverTypeGD = 6, &
+      SolverTypeJD = 7, &
+      SolverTypeRQCG = 8, &
+      SolverTypeCISS = 9, &
+      SolverTypeLapack = 10, &
+      SolverTypeArpack = 11, &
+      SolverTypeBlzpack = 12, &
+      SolverTypeTrlan = 13, &
+      SolverTypeBlopex = 14, &
+      SolverTypePrimme = 15, &
+      SolverTypeFeast = 16, &
+      SolverTypeNotSpecified = 17 !=>Use slepc default
+   integer :: solver_option_switch
 
-  !Extraction type
-  integer, parameter :: & !Note not all extractions are supported by every solver
-       ExtractionRitz=1,&
-       ExtractionHarmonic=2,&
-       ExtractionHarmonicRelative=3,&
-       ExtractionHarmonicRight=4,&
-       ExtractionHarmonicLargest=5,&
-       ExtractionRefined=6,&
-       ExtractionRefinedHarmonic=7,&
-       ExtractionNotSpecified=8 !=>Use slepc default
-  integer :: extraction_option_switch
+   !Extraction type
+   integer, parameter :: & !Note not all extractions are supported by every solver
+      ExtractionRitz = 1, &
+      ExtractionHarmonic = 2, &
+      ExtractionHarmonicRelative = 3, &
+      ExtractionHarmonicRight = 4, &
+      ExtractionHarmonicLargest = 5, &
+      ExtractionRefined = 6, &
+      ExtractionRefinedHarmonic = 7, &
+      ExtractionNotSpecified = 8 !=>Use slepc default
+   integer :: extraction_option_switch
 
-  !Which eigenpairs do we search for
-  integer, parameter :: &
-       WhichLargestMagnitude=1,&
-       WhichSmallestMagnitude=2,&
-       WhichLargestReal=3,&
-       WhichSmallestReal=4,&
-       WhichLargestImaginary=5,&
-       WhichSmallestImaginary=6,&
-       WhichTargetMagnitude=7,&
-       WhichTargetReal=8,&
-       WhichTargetImaginary=9,& !Complex builds only
-       WhichAll=10,&   !Requires an interval to be set
-       WhichUser=11,&  !Requires a used comparison routine to be defined
-       WhichNotSpecified=12 !=>Use slepc default
-  integer :: which_option_switch
+   !Which eigenpairs do we search for
+   integer, parameter :: &
+      WhichLargestMagnitude = 1, &
+      WhichSmallestMagnitude = 2, &
+      WhichLargestReal = 3, &
+      WhichSmallestReal = 4, &
+      WhichLargestImaginary = 5, &
+      WhichSmallestImaginary = 6, &
+      WhichTargetMagnitude = 7, &
+      WhichTargetReal = 8, &
+      WhichTargetImaginary = 9, & !Complex builds only
+      WhichAll = 10, &   !Requires an interval to be set
+      WhichUser = 11, &  !Requires a used comparison routine to be defined
+      WhichNotSpecified = 12 !=>Use slepc default
+   integer :: which_option_switch
 
-  !What sort of spectral transform do we use
-  integer, parameter :: &
-       TransformShell=1,&
-       TransformShift=2,&
-       TransformInvert=3,&
-       TransformCayley=4,&
-       TransformFold=5,&
-       TransformPrecond=6,&
-       TransformNotSpecified=7
-  integer :: transform_option_switch
+   !What sort of spectral transform do we use
+   integer, parameter :: &
+      TransformShell = 1, &
+      TransformShift = 2, &
+      TransformInvert = 3, &
+      TransformCayley = 4, &
+      TransformFold = 5, &
+      TransformPrecond = 6, &
+      TransformNotSpecified = 7
+   integer :: transform_option_switch
 
-  !//////////////////
+   !//////////////////
 
-  !Number of eigenvalues to seek
-  integer :: n_eig
+   !Number of eigenvalues to seek
+   integer :: n_eig
 
-  !Maximum number of iterations (calls to advance) allowed
-  integer :: max_iter
+   !Maximum number of iterations (calls to advance) allowed
+   integer :: max_iter
 
-  !Tolerance to converge to
-  real :: tolerance
+   !Tolerance to converge to
+   real :: tolerance
 
-  !Real and imaginary components of target (roughly where we expect eigvals to be)
-  real :: targ_re, targ_im
+   !Real and imaginary components of target (roughly where we expect eigvals to be)
+   real :: targ_re, targ_im
 
-  !Do we specify the initial condition (through ginit)?
-  logical :: use_ginit
+   !Do we specify the initial condition (through ginit)?
+   logical :: use_ginit
 
   !Number of stella advance steps per SLEPc call to advance_eigen
   !May be useful when looking at marginal modes etc.
@@ -134,32 +134,30 @@ module eigen_values
   !Do we evaluate the time derivative operator or the time advance operator?
   logical :: analyse_ddt_operator
 
-  !If true then save restart files for each eigenmode
-  logical :: save_restarts
+   !If true then save restart files for each eigenmode
+   logical :: save_restarts
 
-  !Initialisation state
-  logical :: initialized = .false.
+   !Initialisation state
+   logical :: initialized = .false.
 
-    !> A custom type to make it easy to encapsulate specific settings
-  type EpsSettings
-     logical :: use_ginit
-     logical :: analyse_ddt_operator
-     integer :: n_eig
-     integer :: max_iter
-     integer :: solver_option_switch
-     integer :: extraction_option_switch
-     integer :: which_option_switch
-     integer :: transform_option_switch
-     PetscInt :: local_size, global_size
-     real :: tolerance
-     real :: targ_re, targ_im
-     complex :: target
-     PetscScalar :: target_slepc
-  end type EpsSettings
+   !> A custom type to make it easy to encapsulate specific settings
+   type EpsSettings
+      logical :: use_ginit
+      logical :: analyse_ddt_operator
+      integer :: n_eig
+      integer :: max_iter
+      integer :: solver_option_switch
+      integer :: extraction_option_switch
+      integer :: which_option_switch
+      integer :: transform_option_switch
+      PetscInt :: local_size, global_size
+      real :: tolerance
+      real :: targ_re, targ_im
+      complex :: target
+      PetscScalar :: target_slepc
+   end type EpsSettings
 
-  character(len=12),parameter :: nml_name="eigval_knobs"
-
-
+   character(len=12), parameter :: nml_name = "eigval_knobs"
 
 type, extends(abstract_config_type) :: eigval_config_type
      ! namelist : eigval_knobs
@@ -289,16 +287,15 @@ type, extends(abstract_config_type) :: eigval_config_type
      !>
      character(len = 20) :: which_option = 'default'
    contains
-    procedure, public :: read => read_eigval_config
-    procedure, public :: write => write_eigval_config
-    procedure, public :: reset => reset_eigval_config
-    procedure, public :: broadcast => broadcast_eigval_config
-    procedure, public, nopass :: get_default_name => get_default_name_eigval_config
-    procedure, public, nopass :: get_default_requires_index => get_default_requires_index_eigval_config
-  end type eigval_config_type
+      procedure, public :: read => read_eigval_config
+      procedure, public :: write => write_eigval_config
+      procedure, public :: reset => reset_eigval_config
+      procedure, public :: broadcast => broadcast_eigval_config
+      procedure, public, nopass :: get_default_name => get_default_name_eigval_config
+      procedure, public, nopass :: get_default_requires_index => get_default_requires_index_eigval_config
+   end type eigval_config_type
 
-  type(eigval_config_type) :: eigval_config
-
+   type(eigval_config_type) :: eigval_config
 
 contains
 
@@ -347,9 +344,9 @@ contains
     !Get the input parameters
     call read_parameters(eigval_config_in)
 
-    !Set PETSC_COMM_WORLD to be mp_comm so we can use whatever sub-comm
-    !needed for list mode to work
-    PETSC_COMM_WORLD=mp_comm
+      !Set PETSC_COMM_WORLD to be mp_comm so we can use whatever sub-comm
+      !needed for list mode to work
+      PETSC_COMM_WORLD = mp_comm
 
     !Initialise petsc
     !call PetscInitialize(PETSC_NULL_CHARACTER,ierr)
@@ -374,112 +371,112 @@ contains
     implicit none
     type(eigval_config_type), intent(in), optional :: eigval_config_in
 
-    !NOTE: text_option is case sensitive (currently)
-    type(text_option), dimension(18), parameter :: solver_type_opts = &
-         (/&
-         text_option('slepc_default',SolverTypeNotSpecified),&
-         text_option('default',SolverTypeKrylovSchur),&
-         text_option('power',SolverTypePower),&
-         text_option('subspace',SolverTypeSubspace),&
-         text_option('arnoldi',SolverTypeArnoldi),&
-         text_option('lanczos',SolverTypeLanczos),&
-         text_option('krylov',SolverTypeKrylovSchur),&
-         text_option('GD',SolverTypeGD),&
-         text_option('JD',SolverTypeJD),&
-         text_option('RQCG',SolverTypeRQCG),&
-         text_option('CISS',SolverTypeCISS),&
-         text_option('lapack',SolverTypeLapack),&
-         text_option('arpack',SolverTypeArpack),&
-         text_option('blzpack',SolverTypeBlzpack),&
-         text_option('trlan',SolverTypeTrlan),&
-         text_option('blopex',SolverTypeBlopex),&
-         text_option('primme',SolverTypePrimme),&
-         text_option('feast',SolverTypeFeast)&
-         /)
+      !NOTE: text_option is case sensitive (currently)
+      type(text_option), dimension(18), parameter :: solver_type_opts = &
+                                                     (/ &
+                                                     text_option('slepc_default', SolverTypeNotSpecified), &
+                                                     text_option('default', SolverTypeKrylovSchur), &
+                                                     text_option('power', SolverTypePower), &
+                                                     text_option('subspace', SolverTypeSubspace), &
+                                                     text_option('arnoldi', SolverTypeArnoldi), &
+                                                     text_option('lanczos', SolverTypeLanczos), &
+                                                     text_option('krylov', SolverTypeKrylovSchur), &
+                                                     text_option('GD', SolverTypeGD), &
+                                                     text_option('JD', SolverTypeJD), &
+                                                     text_option('RQCG', SolverTypeRQCG), &
+                                                     text_option('CISS', SolverTypeCISS), &
+                                                     text_option('lapack', SolverTypeLapack), &
+                                                     text_option('arpack', SolverTypeArpack), &
+                                                     text_option('blzpack', SolverTypeBlzpack), &
+                                                     text_option('trlan', SolverTypeTrlan), &
+                                                     text_option('blopex', SolverTypeBlopex), &
+                                                     text_option('primme', SolverTypePrimme), &
+                                                     text_option('feast', SolverTypeFeast) &
+                                                     /)
 
-    type(text_option), dimension(9), parameter :: extraction_type_opts = &
-         (/&
-         text_option('slepc_default',ExtractionNotSpecified),&
-         text_option('default',ExtractionNotSpecified),&
-         text_option('ritz',ExtractionRitz),&
-         text_option('harmonic',ExtractionHarmonic),&
-         text_option('harmonic_relative',ExtractionHarmonicRelative),&
-         text_option('harmonic_right',ExtractionHarmonicRight),&
-         text_option('harmonic_largest',ExtractionHarmonicLargest),&
-         text_option('refined',ExtractionRefined),&
-         text_option('refined_harmonic',ExtractionRefinedHarmonic)&
-         /)
+      type(text_option), dimension(9), parameter :: extraction_type_opts = &
+                                                    (/ &
+                                                    text_option('slepc_default', ExtractionNotSpecified), &
+                                                    text_option('default', ExtractionNotSpecified), &
+                                                    text_option('ritz', ExtractionRitz), &
+                                                    text_option('harmonic', ExtractionHarmonic), &
+                                                    text_option('harmonic_relative', ExtractionHarmonicRelative), &
+                                                    text_option('harmonic_right', ExtractionHarmonicRight), &
+                                                    text_option('harmonic_largest', ExtractionHarmonicLargest), &
+                                                    text_option('refined', ExtractionRefined), &
+                                                    text_option('refined_harmonic', ExtractionRefinedHarmonic) &
+                                                    /)
 
-    type(text_option), dimension(13), parameter :: which_type_opts = &
-         (/&
-         text_option('slepc_default',WhichNotSpecified),&
-         text_option('default',WhichTargetMagnitude),&
-         text_option('largest_magnitude',WhichLargestMagnitude),&
-         text_option('smallest_magnitude',WhichSmallestMagnitude),&
-         text_option('largest_real',WhichLargestReal),&
-         text_option('smallest_real',WhichSmallestReal),&
-         text_option('largest_imaginary',WhichLargestImaginary),&
-         text_option('smallest_imaginary',WhichSmallestImaginary),&
-         text_option('target_magnitude',WhichTargetMagnitude),&
-         text_option('target_real',WhichTargetReal),&
-         text_option('target_imaginary',WhichTargetImaginary),&
-         text_option('all',WhichAll),&
-         text_option('user',WhichUser)&
-         /)
+      type(text_option), dimension(13), parameter :: which_type_opts = &
+                                                     (/ &
+                                                     text_option('slepc_default', WhichNotSpecified), &
+                                                     text_option('default', WhichTargetMagnitude), &
+                                                     text_option('largest_magnitude', WhichLargestMagnitude), &
+                                                     text_option('smallest_magnitude', WhichSmallestMagnitude), &
+                                                     text_option('largest_real', WhichLargestReal), &
+                                                     text_option('smallest_real', WhichSmallestReal), &
+                                                     text_option('largest_imaginary', WhichLargestImaginary), &
+                                                     text_option('smallest_imaginary', WhichSmallestImaginary), &
+                                                     text_option('target_magnitude', WhichTargetMagnitude), &
+                                                     text_option('target_real', WhichTargetReal), &
+                                                     text_option('target_imaginary', WhichTargetImaginary), &
+                                                     text_option('all', WhichAll), &
+                                                     text_option('user', WhichUser) &
+                                                     /)
 
-    type(text_option), dimension(8), parameter :: transform_type_opts = &
-         (/&
-         text_option('slepc_default',TransformNotSpecified),&
-         text_option('default',TransformNotSpecified),&
-         text_option('shell',TransformShell),&
-         text_option('shift',TransformShift),&
-         text_option('invert',TransformInvert),&
-         text_option('cayley',TransformCayley),&
-         text_option('fold',TransformFold),&
-         text_option('precond',TransformPrecond)&
-         /)
+      type(text_option), dimension(8), parameter :: transform_type_opts = &
+                                                    (/ &
+                                                    text_option('slepc_default', TransformNotSpecified), &
+                                                    text_option('default', TransformNotSpecified), &
+                                                    text_option('shell', TransformShell), &
+                                                    text_option('shift', TransformShift), &
+                                                    text_option('invert', TransformInvert), &
+                                                    text_option('cayley', TransformCayley), &
+                                                    text_option('fold', TransformFold), &
+                                                    text_option('precond', TransformPrecond) &
+                                                    /)
 
-    character(len=20) :: solver_option, extraction_option, which_option, transform_option
+      character(len=20) :: solver_option, extraction_option, which_option, transform_option
 
-    integer :: ierr
-    logical :: exist
+      integer :: ierr
+      logical :: exist
 
-    if (present(eigval_config_in)) eigval_config = eigval_config_in
+      if (present(eigval_config_in)) eigval_config = eigval_config_in
 
-    call eigval_config%init(name = 'eigval_knobs', requires_index = .false.)
+      call eigval_config%init(name='eigval_knobs', requires_index=.false.)
 
-    ! Copy out internal values into module level parameters
-    analyse_ddt_operator = eigval_config%analyse_ddt_operator
-    extraction_option = eigval_config%extraction_option
-    max_iter = eigval_config%max_iter
-    n_eig = eigval_config%n_eig
-    nadv = eigval_config%nadv
-    save_restarts = eigval_config%save_restarts
-    solver_option = eigval_config%solver_option
-    targ_im = eigval_config%targ_im
-    targ_re = eigval_config%targ_re
-    tolerance = eigval_config%tolerance
-    transform_option = eigval_config%transform_option
-    use_ginit = eigval_config%use_ginit
-    which_option = eigval_config%which_option
+      ! Copy out internal values into module level parameters
+      analyse_ddt_operator = eigval_config%analyse_ddt_operator
+      extraction_option = eigval_config%extraction_option
+      max_iter = eigval_config%max_iter
+      n_eig = eigval_config%n_eig
+      nadv = eigval_config%nadv
+      save_restarts = eigval_config%save_restarts
+      solver_option = eigval_config%solver_option
+      targ_im = eigval_config%targ_im
+      targ_re = eigval_config%targ_re
+      tolerance = eigval_config%tolerance
+      transform_option = eigval_config%transform_option
+      use_ginit = eigval_config%use_ginit
+      which_option = eigval_config%which_option
 
-    exist = eigval_config%exist
+      exist = eigval_config%exist
 
-    !Get error unit for output
-    ierr = error_unit()
+      !Get error unit for output
+      ierr = error_unit()
 
-    !Convert string options to integer flags
-    call get_option_value &
-         (solver_option,solver_type_opts,solver_option_switch,&
-         ierr,"solver_option in "//nml_name,.true.)
+      !Convert string options to integer flags
+      call get_option_value &
+         (solver_option, solver_type_opts, solver_option_switch, &
+          ierr, "solver_option in "//nml_name, .true.)
 
-    call get_option_value &
-         (extraction_option,extraction_type_opts,extraction_option_switch,&
-         ierr,"extraction_option in "//nml_name,.true.)
+      call get_option_value &
+         (extraction_option, extraction_type_opts, extraction_option_switch, &
+          ierr, "extraction_option in "//nml_name, .true.)
 
-    call get_option_value &
-         (which_option,which_type_opts,which_option_switch,&
-         ierr,"which_option in "//nml_name,.true.)
+      call get_option_value &
+         (which_option, which_type_opts, which_option_switch, &
+          ierr, "which_option in "//nml_name, .true.)
 
     call get_option_value &
          (transform_option,transform_type_opts,transform_option_switch,&
@@ -672,9 +669,9 @@ contains
     !matrix and never the matrix itself (hence why Sum(n_loc*n_loc)/=n_glob*n_glob
     !is ok!).
 
-    !Make a shell matrix operator (AdvMat)
-    call MatCreateShell(PETSC_COMM_WORLD,eps_settings%local_size,eps_settings%local_size,&
-         eps_settings%global_size,eps_settings%global_size,PETSC_NULL_INTEGER,mat_operator,ierr)
+      !Make a shell matrix operator (AdvMat)
+      call MatCreateShell(PETSC_COMM_WORLD, eps_settings%local_size, eps_settings%local_size, &
+                          eps_settings%global_size, eps_settings%global_size, PETSC_NULL_INTEGER, mat_operator, ierr)
 
     !Set the shell MATOP_MULT operation, i.e. which routine returns the result
     !of a AdvMat.x

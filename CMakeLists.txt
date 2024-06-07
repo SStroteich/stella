@@ -8,6 +8,14 @@ set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 # Sets default build type to RelWithDebInfo
 include(BuildType)
 
+macro( add_flag_if_true FLAG FLAG_NAME )
+  if ( ${FLAG} STREQUAL "ON" )
+    SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D${FLAG_NAME}=1" )
+  else()
+    SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D${FLAG_NAME}=0" )
+  endif()
+endmacro()
+
 ############################################################
 # Build options
 option(STELLA_ENABLE_LAPACK "Enable LAPACK wrappers" ON)
@@ -16,6 +24,9 @@ option(STELLA_ENABLE_NETCDF "Enable NetCDF" ON)
 option(STELLA_ENABLE_DOUBLE "Promotes precisions of real and complex to double" ON)
 option(STELLA_ENABLE_PETSC "Enable PETSc" OFF)
 option(STELLA_ENABLE_SLEPC "Enable SLEPc" OFF)
+#option( WITH_EIG "Enable Eigenvalue solver" OFF)
+add_compile_definitions(WITH_EIG=0)
+
 
 
 # Options for utils internal library

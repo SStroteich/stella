@@ -134,6 +134,9 @@ alias plot_potential_vs_ky="python3 $STELLAPY/plot/nonlinear/potential_vs_wavenu
 # Parallel mode structure
 alias plot_potential_vs_z="python3 $STELLAPY/plot/nonlinear/potential_vs_z.py"   
 alias plot_moment_vs_z="python3 $STELLAPY/plot/nonlinear/moment_vs_z.py"   
+alias plot_qflux_vs_z="python3 $STELLAPY/plot/nonlinear/flux_vs_z.py --qflux"
+alias plot_pflux_vs_z="python3 $STELLAPY/plot/nonlinear/flux_vs_z.py --pflux"
+alias plot_vflux_vs_z="python3 $STELLAPY/plot/nonlinear/flux_vs_z.py --vflux"
 
 # Parameter influence
 alias plot_qflux_vs_parameter="python3 $STELLAPY/plot/nonlinear/flux_vs_parameter.py --qflux"  

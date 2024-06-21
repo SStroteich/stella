@@ -328,7 +328,6 @@ contains
                               theta_vmec, zed_scalefac, aref, bref, alpha, zeta, &
                               field_period_ratio, x_displacement_fac)
 
-
             write (*, '(A)') "############################################################"
             write (*, '(A)') "                     BOUNDARY CONDITIONS"
             write (*, '(A)') "############################################################"

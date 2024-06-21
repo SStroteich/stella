@@ -29,6 +29,7 @@ import numpy as np
 import matplotlib as mpl  
 import matplotlib.pyplot as plt 
 from matplotlib.lines import Line2D
+import matplotlib.gridspec as gridspec
 from scipy.interpolate import interp1d
 
 # Stellapy package
@@ -38,6 +39,7 @@ from stellapy.data.input.read_inputFile import read_nonlinearFullFluxSurfaceFrom
 from stellapy.plot.utils.labels.get_timeFrameString import get_timeFrameString
 from stellapy.plot.utils.species.recognize_species import recognize_species
 from stellapy.utils.files.get_firstInputFile import get_firstInputFile
+from stellapy.plot.utils.style.create_figure import update_figure_style
 from stellapy.plot.utils.labels.standardLabels import standardLabels  
 from stellapy.plot.utils.style.create_figure import create_figure 
 from stellapy.utils.decorators.exit_program import exit_program
@@ -93,8 +95,11 @@ def plot_flux_vs_z(
         subplot_flux_vs_z(axes[i], research, x_quantity, y_quantity, specie=specie, log=log, color=color, geometry=geometry, normalize_to_one=normalize_to_one, interpolate=interpolate)
     
     # Appearance
-    if normalize_to_one: ax.set_ylim([0,1]) 
-    ax.yaxis.labelpad = 15
+    for ax in axes: (ax.ticklabel_format(style='plain', useOffset=False) if (axes[0].get_ylim()[1]<1000) else ax.ticklabel_format(axis="y", style="sci", scilimits=(0,0))) if not log else ""
+    for ax in axes: ax.xaxis.labelpad = 10
+    for ax in axes: ax.yaxis.labelpad = 15
+    if normalize_to_one:
+        for ax in axes: ax.set_ylim([0,1]) 
     
     # Show the figure   
     mpl.rcParams["savefig.directory"] = folder
@@ -157,9 +162,8 @@ def subplot_flux_vs_z(
     ax.set_xlabel(standardLabels["normalized"][x_quantity]) 
 
     specie_label = recognize_species(research, specie) 
-    extra = "$\\sum_{k_x}$" if x_quantity=="ky" else "$\\sum_{k_y}$"
     ylabel = standardLabels["normalized"][y_quantity].replace("{s}",specie_label)
-    ylabel = extra+"$\\langle$" + ylabel + "$\\rangle_{z, t="+get_timeFrameString(tstart, tend)+"}$"
+    ylabel = "$\\langle$" + ylabel + "$\\rangle_{t="+get_timeFrameString(tstarts, tends)+"}$"
     ax.set_ylabel(ylabel)         
     # Automatically set the axis limits and legends 
     legend.add_legend()
@@ -211,7 +215,7 @@ def get_quantity_versus_z(y_quantity, simulation, specie, tstarts, tends):
         
     # Get the quantity versus (t,z)
     if y_quantity=="qflux": 
-        vec_quantity = simulation.fluxes.qflux_vs_tsz.qflux[:,specie,:]; t 
+        vec_quantity = simulation.fluxes.qflux_vs_tsz.qflux[:,specie,:]
         vec_time = simulation.fluxes.qflux_vs_tsz.t
     if y_quantity=="pflux":
         vec_quantity = simulation.fluxes.pflux_vs_tsz.pflux[:,specie,:]

@@ -1649,7 +1649,7 @@ contains
             real, dimension(2) :: time_eigval = 0.
 
          contains
-            !> Returns true if GS2 was compiled with WITH_EIG defined -- here forced to .false.
+            !> Returns true if stella was compiled with WITH_EIG defined -- here forced to .false.
   !! as compiled without SLEPc support
             function eigval_functional()
                logical :: eigval_functional

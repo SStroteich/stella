@@ -24,7 +24,7 @@ option(STELLA_ENABLE_NETCDF "Enable NetCDF" ON)
 option(STELLA_ENABLE_DOUBLE "Promotes precisions of real and complex to double" ON)
 option(STELLA_ENABLE_PETSC "Enable PETSc" OFF)
 option(STELLA_ENABLE_SLEPC "Enable SLEPc" OFF)
-add_compile_definitions(WITH_EIG=1)
+add_compile_definitions(WITH_EIG=0)
 
 
 

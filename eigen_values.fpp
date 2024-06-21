@@ -1172,7 +1172,7 @@ contains
       implicit none
       complex, intent(in) :: eig
       if (analyse_ddt_operator) then
-         Eig_SlepcToStella = eig
+         Eig_SlepcToStella = eig * cmplx(0.0, 1.0)
       else
          Eig_SlepcToStella = log(eig) * cmplx(0.0, 1.0) / (code_dt * nadv)
       end if
@@ -1187,7 +1187,7 @@ contains
       !magnitude of the eigenvalue.
       if (analyse_ddt_operator) then
 #ifdef PETSC_USE_COMPLEX
-         Eig_StellaToSlepc = eig
+         Eig_StellaToSlepc = -cmplx(0.0, 1.0) * eig
 #else
          Eig_StellaToSlepc = abs(cmplx(0.0, 1.0) * eig)
 #endif

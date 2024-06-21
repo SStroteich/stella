@@ -308,6 +308,8 @@ contains
             call allocate_arrays(nalpha, nzgrid)
             if (debug) write (*, *) 'init_geometry::allocate_temporary_arrays'
             call allocate_temporary_arrays(nalpha, nzgrid)
+            btor = 0
+
             !> get geometry coefficients from vmec
             if (debug) write (*, *) 'init_geometry::get_vmec_geo'
             !> abs(twist_and_shift_geo_fac) is dkx/dky * jtwist
@@ -325,6 +327,7 @@ contains
                               cvdrift_alpha, cvdrift0_psi, sign_torflux, &
                               theta_vmec, zed_scalefac, aref, bref, alpha, zeta, &
                               field_period_ratio, x_displacement_fac)
+
 
             write (*, '(A)') "############################################################"
             write (*, '(A)') "                     BOUNDARY CONDITIONS"

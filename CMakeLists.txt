@@ -22,9 +22,21 @@ option(STELLA_ENABLE_LAPACK "Enable LAPACK wrappers" ON)
 option(STELLA_ENABLE_FFT "Enable FFTs" ON)
 option(STELLA_ENABLE_NETCDF "Enable NetCDF" ON)
 option(STELLA_ENABLE_DOUBLE "Promotes precisions of real and complex to double" ON)
-option(STELLA_ENABLE_PETSC "Enable PETSc" OFF)
-option(STELLA_ENABLE_SLEPC "Enable SLEPc" OFF)
-add_compile_definitions(WITH_EIG=0)
+
+option(STELLA_ENABLE_EIG "Enable Eigenvalue solver" OFF)
+
+if(STELLA_ENABLE_EIG)
+  message(STATUS "Eigenvalue solver enabled")
+  add_compile_options(-DWITH_EIG=1)
+  option(STELLA_ENABLE_PETSC "Enable PETSc" ON)
+  option(STELLA_ENABLE_SLEPC "Enable SLEPc" ON)
+else()
+  message(STATUS "Eigenvalue solver disabled")
+  add_compile_options(-DWITH_EIG=0)
+  option(STELLA_ENABLE_PETSC "Enable PETSc" OFF)
+  option(STELLA_ENABLE_SLEPC "Enable SLEPc" OFF)
+endif()
+
 
 
 
@@ -355,4 +367,8 @@ message("
    Compilation flags        : ${STELLA_COMPILE_BUILD_FLAGS}
    Build type               : ${CMAKE_BUILD_TYPE}
    Compiler                 : ${CMAKE_Fortran_COMPILER}
+   MPI wrapper              : ${MPIEXEC_EXECUTABLE}
+   Eigenvalue solver        : ${STELLA_ENABLE_EIG}
+   PETSc support            : ${STELLA_ENABLE_PETSC}
+   SLEPc support            : ${STELLA_ENABLE_SLEPC}
 ")

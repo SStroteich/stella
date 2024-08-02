@@ -70,7 +70,7 @@ program stella
          ierr = error_unit()
          if (convergence_switch) then
             if (stop_stella .and. proc0 .and. mod(istep, nwrite) == 0) &
-                    write (*, *) 'Convergence test successful, stopping simulation.'
+               write (*, *) 'Convergence test successful, stopping simulation.'
          end if
          call flush_output_file(ierr)
          istep = istep + 1

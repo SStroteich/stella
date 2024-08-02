@@ -69,6 +69,7 @@ module time_advance
    ! needed for timing various pieces of gke solve
    real, dimension(2, 10) :: time_gke = 0.
    real, dimension(2, 2) :: time_parallel_nl = 0.
+   real :: nonlinear_ev = 0.
 
    logical :: debug = .false.
 
@@ -1028,13 +1029,13 @@ contains
 
             !> Advance the explicit parts of the GKE
             if (debug) write (*, *) 'time_advance::advance_explicit'
-            if (.not. fully_implicit) call advance_explicit(gnew, restart_time_step, istep)
+            if (.not. fully_implicit) call advance_explicit_linear(gnew, restart_time_step, istep)
 
             !> Use operator splitting to separately evolve all terms treated implicitly
             if (.not. restart_time_step .and. .not. fully_explicit) call advance_implicit(istep, phi, apar, gnew)
          else
             if (.not. fully_explicit) call advance_implicit(istep, phi, apar, gnew)
-            if (.not. fully_implicit) call advance_explicit(gnew, restart_time_step, istep)
+            if (.not. fully_implicit) call advance_explicit_linear(gnew, restart_time_step, istep)
          end if
 
          ! If the time step has not been restarted, the time advance was succesfull
@@ -1068,6 +1069,81 @@ contains
       nonlinear = nonlinear_temp
 
    end subroutine advance_linear
+
+   !> advance_explicit_linear takes as input the guiding centre distribution function
+   !> in k-space and updates it to account for all of the terms in the GKE that
+   !> are advanced explicitly in time
+   !> it is used for the eigenvalue calculation
+subroutine advance_explicit_linear(g, restart_time_step, istep)
+
+      use mp, only: proc0
+      use job_manage, only: time_message
+      use zgrid, only: nzgrid
+      use extended_zgrid, only: periodic, phase_shift
+      use kt_grids, only: naky
+      use stella_layouts, only: vmu_lo, iv_idx
+      use parallel_streaming, only: stream_sign
+
+      implicit none
+
+      complex, dimension(:, :, -nzgrid:, :, vmu_lo%llim_proc:), intent(in out) :: g
+      logical, intent(in out) :: restart_time_step
+      integer, intent(in) :: istep
+
+      integer :: ivmu, iv, sgn, iky
+
+      !> start the timer for the explicit part of the solve
+      if (proc0) call time_message(.false., time_gke(:, 8), ' explicit')
+   
+      call advance_explicit_euler(g, restart_time_step, istep)
+
+      !> enforce periodicity for periodic (including zonal) modes
+      do iky = 1, naky
+         if (periodic(iky)) then
+            do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
+               iv = iv_idx(vmu_lo, ivmu)
+               !> stream_sign > 0 corresponds to dz/dt < 0
+               sgn = stream_sign(iv)
+               g(iky, :, sgn * nzgrid, :, ivmu) = &
+                  g(iky, :, -sgn * nzgrid, :, ivmu) * phase_shift(iky)**(-sgn)
+            end do
+         end if
+      end do
+
+      !> stop the timer for the explicit part of the solve
+      if (proc0) call time_message(.false., time_gke(:, 8), ' explicit')
+
+   end subroutine advance_explicit_linear
+
+   !> advance_expliciit_euler uses the forward euler scheme to advance one time step
+   subroutine advance_explicit_euler(g, restart_time_step, istep)
+
+      use dist_fn_arrays, only: g0, g1
+      use zgrid, only: nzgrid
+      use stella_layouts, only: vmu_lo
+      use multibox, only: RK_step
+
+      implicit none
+
+      complex, dimension(:, :, -nzgrid:, :, vmu_lo%llim_proc:), intent(in out) :: g
+      logical, intent(in out) :: restart_time_step
+      integer, intent(in) :: istep
+
+      integer :: icnt
+
+      !> RK_step only true if running in multibox mode
+      if (RK_step) call mb_communicate(g)
+
+      g0 = g
+      icnt = 1
+
+      call solve_gke(g0, g1, restart_time_step, istep)
+
+      !> this is gbar at intermediate time level
+      g = g0 + g1
+
+   end subroutine advance_explicit_euler
+
    !> advance_explicit takes as input the guiding centre distribution function
    !> in k-space and updates it to account for all of the terms in the GKE that
    !> are advanced explicitly in time
@@ -1720,6 +1796,7 @@ contains
       use mirror_terms, only: advance_mirror_explicit
       use flow_shear, only: advance_parallel_flow_shear
       use multibox, only: include_multibox_krook, add_multibox_krook
+      use mp, only: proc0
 
       implicit none
 
@@ -2116,7 +2193,7 @@ contains
 
    subroutine advance_ExB_nonlinearity(g, gout, restart_time_step, istep)
 
-      use mp, only: proc0, min_allreduce
+      use mp, only: proc0, min_allreduce, max_allreduce
       use mp, only: scope, allprocs, subprocs
       use stella_layouts, only: vmu_lo, imu_idx, is_idx
       use job_manage, only: time_message
@@ -2150,6 +2227,7 @@ contains
       complex, dimension(:, :), allocatable :: g0k, g0a, g0k_swap
       complex, dimension(:, :), allocatable :: g0kxy, g0xky, prefac
       real, dimension(:, :), allocatable :: g0xy, g1xy, bracket
+      real :: g0dx_max, g0dy_max
 
       real :: zero, cfl_dt
       integer :: ivmu, iz, it, imu, is
@@ -2190,7 +2268,8 @@ contains
       if (prp_shear_enabled .and. hammett_flow_shear) then
          prefac = exp(-zi * g_exb * g_exbfac * spread(x, 1, naky) * spread(aky * shift_state, 2, nx))
       end if
-
+      g0dx_max = -1.
+      g0dy_max = -1.
       do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
          imu = imu_idx(vmu_lo, ivmu)
          is = is_idx(vmu_lo, ivmu)
@@ -2209,10 +2288,18 @@ contains
                   g0k = g0k - g_exb * g_exbfac * spread(shift_state, 2, nakx) * g0a
                end if
                !> FFT to get d<chi>/dx in (y,x) space
+
+
+
                call forward_transform(g0k, g1xy)
                !> multiply by the geometric factor appearing in the Poisson bracket;
                !> i.e., (dx/dpsi*dy/dalpha)*0.5
                g1xy = g1xy * exb_nonlin_fac
+               g0dx_max = max(maxval(abs(g1xy)), g0dx_max)
+
+               
+               !write(*,*) 'g1xy dx', g0dx_max, 'ky_max', maxval(abs(aky))
+               !save maxval(abs(g1xy))  * maxval(abs(aky))
                !> compute the contribution to the Poisson bracket from dg/dy*d<chi>/dx
                bracket = g0xy * g1xy
 
@@ -2242,11 +2329,20 @@ contains
                call forward_transform(g0k, g0xy)
                !> compute d<chi>/dy in k-space
                call get_dchidy(iz, ivmu, phi(:, :, iz, it), apar(:, :, iz, it), g0k)
+               
+
+               !write(*,*) 'g0k', maxval(abs(g0k)), 'kx_max', maxval(abs(akx))
+               !save maxval(abs(g0k)) * exb_nonlin_fac * maxval(abs(akx))
+
                !> FFT to get d<chi>/dy in (y,x) space
                call forward_transform(g0k, g1xy)
                !> multiply by the geometric factor appearing in the Poisson bracket;
                !> i.e., (dx/dpsi*dy/dalpha)*0.5
                g1xy = g1xy * exb_nonlin_fac
+               g0dy_max = max(maxval(abs(g1xy)), g0dy_max)
+
+               !write(*,*) 'g1xy dy', g0dy_max, 'kx_max', maxval(abs(akx))
+               !save maxval(abs(g1xy))  * maxval(abs(aky))
                !> compute the contribution to the Poisson bracket from dg/dy*d<chi>/dx
                bracket = bracket - g0xy * g1xy
 
@@ -2260,6 +2356,7 @@ contains
                   call get_dgdy(g0a, g0k)
                   call forward_transform(g0k, g1xy)
                   g1xy = g1xy * exb_nonlin_fac
+
                   bracket = bracket - g0xy * g1xy
                   !> estimate the CFL dt due to the above contribution
                   cfl_dt_ExB = min(cfl_dt_ExB, 2.*pi / max(maxval(abs(g1xy)) * akx(ikx_max), zero))
@@ -2267,6 +2364,7 @@ contains
 
                if (yfirst) then
                   call transform_x2kx(bracket, g0kxy)
+                  
                   if (full_flux_surface) then
                      gout(:, :, iz, it, ivmu) = g0kxy
                   else
@@ -2281,6 +2379,16 @@ contains
             end do
          end do
       end do
+      call max_allreduce(g0dx_max)
+      call max_allreduce(g0dy_max)
+      !if(proc0) write(*,*) 'g0dx_max', g0dx_max, 'ky_max', maxval(abs(aky))
+      !if(proc0) write(*,*) 'g0dy_max', g0dy_max, 'kx_max', maxval(abs(akx))
+      nonlinear_ev = g0dx_max*maxval(abs(aky)) + g0dy_max*maxval(abs(akx))
+      if(proc0) write(*,*) 'maximum nl ev ', nonlinear_ev, ' code_dt ', code_dt
+      !nonlinear_ev_maxtime = scheme specific value/ nonlinear_ev
+   
+      
+      
 
       deallocate (g0k, g0a, g0xy, g1xy, bracket)
       if (allocated(g0k_swap)) deallocate (g0k_swap)

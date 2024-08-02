@@ -14,7 +14,7 @@ program stella
    use file_utils, only: error_unit, flush_output_file
    use git_version, only: get_git_version, get_git_date
    use convergence, only: convergence_switch, testing_convergence
-   use eigen_values, only: eigval_functional, run_eigensolver
+   use eigen_values, only: eigval_functional, run_eigensolver, test_eigensolver
    use mp, only: proc0
 
    implicit none
@@ -35,7 +35,8 @@ program stella
    !> Initialize stella
    call init_stella(istep0, get_git_version(), get_git_date())
    if (eigenvalue_option) then
-      call run_eigensolver
+      call test_eigensolver
+      !call run_eigensolver
    else
       !> Diagnose stella
       if (debug) write (*, *) 'stella::diagnose_stella'
@@ -67,6 +68,9 @@ program stella
          call diagnose_stella(istep)
          call time_message(.false., time_diagnostics, ' diagnostics')
          ierr = error_unit()
+         if (convergence_switch) then 
+            if(stop_stella .and. proc0 .and. mod(istep, nwrite) == 0) write(*,*) 'Convergence test successful, stopping simulation.'
+         end if
          call flush_output_file(ierr)
          istep = istep + 1
       end do

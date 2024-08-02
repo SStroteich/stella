@@ -1747,7 +1747,7 @@ contains
                eigval_functional = .false.
             end function eigval_functional
 
-            subroutine run_eigensolver
+            subroutine test_eigensolver
 
                use job_manage, only: time_message
                use mp, only: mp_abort, proc0
@@ -1755,6 +1755,15 @@ contains
                call mp_abort("Require slepc/petsc")
 
             end subroutine run_eigensolver
+
+                        subroutine run_eigensolver
+
+               use job_manage, only: time_message
+               use mp, only: mp_abort, proc0
+               if (proc0) write (*, *) "Stella was compiled without Eigenvalue solver support."
+               call mp_abort("Require slepc/petsc")
+
+            end subroutine test_eigensolver
          end module eigen_values
 
 #endif

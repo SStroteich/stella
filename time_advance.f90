@@ -1074,7 +1074,7 @@ contains
    !> in k-space and updates it to account for all of the terms in the GKE that
    !> are advanced explicitly in time
    !> it is used for the eigenvalue calculation
-subroutine advance_explicit_linear(g, restart_time_step, istep)
+   subroutine advance_explicit_linear(g, restart_time_step, istep)
 
       use mp, only: proc0
       use job_manage, only: time_message
@@ -1094,7 +1094,7 @@ subroutine advance_explicit_linear(g, restart_time_step, istep)
 
       !> start the timer for the explicit part of the solve
       if (proc0) call time_message(.false., time_gke(:, 8), ' explicit')
-   
+
       call advance_explicit_euler(g, restart_time_step, istep)
 
       !> enforce periodicity for periodic (including zonal) modes
@@ -2289,15 +2289,12 @@ subroutine advance_explicit_linear(g, restart_time_step, istep)
                end if
                !> FFT to get d<chi>/dx in (y,x) space
 
-
-
                call forward_transform(g0k, g1xy)
                !> multiply by the geometric factor appearing in the Poisson bracket;
                !> i.e., (dx/dpsi*dy/dalpha)*0.5
                g1xy = g1xy * exb_nonlin_fac
                g0dx_max = max(maxval(abs(g1xy)), g0dx_max)
 
-               
                !write(*,*) 'g1xy dx', g0dx_max, 'ky_max', maxval(abs(aky))
                !save maxval(abs(g1xy))  * maxval(abs(aky))
                !> compute the contribution to the Poisson bracket from dg/dy*d<chi>/dx
@@ -2329,7 +2326,6 @@ subroutine advance_explicit_linear(g, restart_time_step, istep)
                call forward_transform(g0k, g0xy)
                !> compute d<chi>/dy in k-space
                call get_dchidy(iz, ivmu, phi(:, :, iz, it), apar(:, :, iz, it), g0k)
-               
 
                !write(*,*) 'g0k', maxval(abs(g0k)), 'kx_max', maxval(abs(akx))
                !save maxval(abs(g0k)) * exb_nonlin_fac * maxval(abs(akx))
@@ -2364,7 +2360,7 @@ subroutine advance_explicit_linear(g, restart_time_step, istep)
 
                if (yfirst) then
                   call transform_x2kx(bracket, g0kxy)
-                  
+
                   if (full_flux_surface) then
                      gout(:, :, iz, it, ivmu) = g0kxy
                   else
@@ -2383,12 +2379,9 @@ subroutine advance_explicit_linear(g, restart_time_step, istep)
       call max_allreduce(g0dy_max)
       !if(proc0) write(*,*) 'g0dx_max', g0dx_max, 'ky_max', maxval(abs(aky))
       !if(proc0) write(*,*) 'g0dy_max', g0dy_max, 'kx_max', maxval(abs(akx))
-      nonlinear_ev = g0dx_max*maxval(abs(aky)) + g0dy_max*maxval(abs(akx))
-      if(proc0) write(*,*) 'maximum nl ev ', nonlinear_ev, ' code_dt ', code_dt
+      nonlinear_ev = g0dx_max * maxval(abs(aky)) + g0dy_max * maxval(abs(akx))
+      if (proc0) write (*, *) 'maximum nl ev ', nonlinear_ev, ' code_dt ', code_dt
       !nonlinear_ev_maxtime = scheme specific value/ nonlinear_ev
-   
-      
-      
 
       deallocate (g0k, g0a, g0xy, g1xy, bracket)
       if (allocated(g0k_swap)) deallocate (g0k_swap)

@@ -14,7 +14,6 @@ module eigen_values
 #include <slepcversion.h>
 #include <petscversion.h>
 
-
 #if PETSC_VERSION_LT(3,6,0)
 #include <finclude/petscvecdef.h>
 #include <finclude/petscmatdef.h>
@@ -938,7 +937,7 @@ contains
          extension = trim(fext)//trim(extension)
       end if
 
-      !Open an output file for writing      
+      !Open an output file for writing
       call open_output_file(ounit, extension)
       write (ounit, '("Slepc eigensolver settings:")')
 
@@ -994,7 +993,6 @@ contains
 
       !9. nadv
       write (ounit, '("   ",A22,2X,":",2X,I0)') "nadv", nadv
-      
 
       !Close output file
       call close_output_file(ounit)
@@ -1635,98 +1633,96 @@ contains
             !Stop timer
             call time_message(.false., time_eigval, ' Eigensolver')
 
-      end subroutine run_eigensolver
+         end subroutine run_eigensolver
 
-      subroutine test_eigensolver
-         use mp, only: mp_comm, proc0, nproc, barrier, iproc
-         implicit none
-         PetscErrorCode :: ierr
-         Mat :: my_operator
-         PetscInt :: n, Istart, Iend, i, index
-         PetscInt :: n_converged, iteration_count
-         EPS :: my_solver
-         PetscScalar :: eig_val_r, eig_val_i
-         real :: start_time, end_time
+         subroutine test_eigensolver
+            use mp, only: mp_comm, proc0, nproc, barrier, iproc
+            implicit none
+            PetscErrorCode :: ierr
+            Mat :: my_operator
+            PetscInt :: n, Istart, Iend, i, index
+            PetscInt :: n_converged, iteration_count
+            EPS :: my_solver
+            PetscScalar :: eig_val_r, eig_val_i
+            real :: start_time, end_time
 
-         !Test the eigensolver
-         PETSC_COMM_WORLD = mp_comm
-         n = 10000
+            !Test the eigensolver
+            PETSC_COMM_WORLD = mp_comm
+            n = 10000
 
-         !Initialise slepc
-         call SlepcInitialize(PETSC_NULL_CHARACTER, ierr)
-         if(proc0)write(*,*) "Slepc initialised"
-         call cpu_time(start_time)
-         call MatCreate(PETSC_COMM_WORLD, my_operator, ierr)
-         call MatSetSizes(my_operator, PETSC_DECIDE, PETSC_DECIDE, n, n, ierr)
-         call MatSetFromOptions(my_operator, ierr)
-         call MatSetUp(my_operator, ierr)
-         if(proc0) write(*,*) "Matrix created"
-         call MatGetOwnershipRange(my_operator, Istart, Iend, ierr)
-         write(*,*) "Rank: ", iproc, " Istart: ", Istart, " Iend: ", Iend
-         call barrier
-         do i = Istart, Iend
-            index = i - 1
-            call MatSetValue(my_operator, index, index, complex(index*1.0,(n-index-1)*(1.0)), INSERT_VALUES, ierr)
-         end do
-         call MatAssemblyBegin(my_operator, MAT_FINAL_ASSEMBLY, ierr)
-         call MatAssemblyEnd(my_operator, MAT_FINAL_ASSEMBLY, ierr)
-         
-         if(proc0) write(*,*) "Matrix assembled"
-         call EPSCreate(PETSC_COMM_WORLD, my_solver, ierr)
-         call EPSSetOperators(my_solver, my_operator,PETSC_NULL_MAT, ierr)
-         !call EpsSetWhichEigenpairs(my_solver, EPS_LARGEST_REAL, ierr)
-         call EPSSetFromOptions(my_solver, ierr)
-         call ReportSolverSettings(my_solver)
-         if(proc0) write(*,*) "Solver created"
-         call EPSSolve(my_solver, ierr)
-         if(proc0) write(*,*) "Solved"
-         call EPSGetConverged(my_solver, n_converged, ierr)
-         call EPSGetIterationNumber(my_solver, iteration_count, ierr)
-         if(proc0) write(*,*) "Converged: ", n_converged, " after ", iteration_count, " iterations"
-         
+            !Initialise slepc
+            call SlepcInitialize(PETSC_NULL_CHARACTER, ierr)
+            if (proc0) write (*, *) "Slepc initialised"
+            call cpu_time(start_time)
+            call MatCreate(PETSC_COMM_WORLD, my_operator, ierr)
+            call MatSetSizes(my_operator, PETSC_DECIDE, PETSC_DECIDE, n, n, ierr)
+            call MatSetFromOptions(my_operator, ierr)
+            call MatSetUp(my_operator, ierr)
+            if (proc0) write (*, *) "Matrix created"
+            call MatGetOwnershipRange(my_operator, Istart, Iend, ierr)
+            write (*, *) "Rank: ", iproc, " Istart: ", Istart, " Iend: ", Iend
+            call barrier
+            do i = Istart, Iend
+               index = i - 1
+               call MatSetValue(my_operator, index, index, complex(index * 1.0, (n - index - 1) * (1.0)), INSERT_VALUES, ierr)
+            end do
+            call MatAssemblyBegin(my_operator, MAT_FINAL_ASSEMBLY, ierr)
+            call MatAssemblyEnd(my_operator, MAT_FINAL_ASSEMBLY, ierr)
 
-         do i = 0, n_converged-1
-            call EPSGetEigenvalue(my_solver, i, eig_val_r, eig_val_i, ierr)
-            if(proc0) write(*,*) "Eigenvalue: ", eig_val_r, " with magnitude: ", abs(eig_val_r)
-         end do
-         call EPSDestroy(my_solver, ierr)
-         call MatDestroy(my_operator, ierr)
-         if(proc0) write(*,*) "Matrix destroyed"
-         call cpu_time(end_time)
-         if(proc0) write(*,*) "Time taken: ", end_time - start_time
-         if(proc0) write(*,*) "Total CPU Time taken: ", (end_time - start_time) * nproc
-         call SlepcFinalize(ierr)
-         if(proc0) write(*,*) "Slepc finalised"         
+            if (proc0) write (*, *) "Matrix assembled"
+            call EPSCreate(PETSC_COMM_WORLD, my_solver, ierr)
+            call EPSSetOperators(my_solver, my_operator, PETSC_NULL_MAT, ierr)
+            !call EpsSetWhichEigenpairs(my_solver, EPS_LARGEST_REAL, ierr)
+            call EPSSetFromOptions(my_solver, ierr)
+            call ReportSolverSettings(my_solver)
+            if (proc0) write (*, *) "Solver created"
+            call EPSSolve(my_solver, ierr)
+            if (proc0) write (*, *) "Solved"
+            call EPSGetConverged(my_solver, n_converged, ierr)
+            call EPSGetIterationNumber(my_solver, iteration_count, ierr)
+            if (proc0) write (*, *) "Converged: ", n_converged, " after ", iteration_count, " iterations"
 
-      end subroutine test_eigensolver
+            do i = 0, n_converged - 1
+               call EPSGetEigenvalue(my_solver, i, eig_val_r, eig_val_i, ierr)
+               if (proc0) write (*, *) "Eigenvalue: ", eig_val_r, " with magnitude: ", abs(eig_val_r)
+            end do
+            call EPSDestroy(my_solver, ierr)
+            call MatDestroy(my_operator, ierr)
+            if (proc0) write (*, *) "Matrix destroyed"
+            call cpu_time(end_time)
+            if (proc0) write (*, *) "Time taken: ", end_time - start_time
+            if (proc0) write (*, *) "Total CPU Time taken: ", (end_time - start_time) * nproc
+            call SlepcFinalize(ierr)
+            if (proc0) write (*, *) "Slepc finalised"
 
-      subroutine advance_test(MatOperator, VecIn, Res, ierr)
-         use dist_fn_arrays, only: gnew
-         implicit none
-         Mat, intent(in) :: MatOperator
-         Vec, intent(inout) :: VecIn, Res
-         PetscErrorCode, intent(inout) :: ierr
-         integer, parameter :: istep = 1
-         integer :: is
-         !First unpack input vector into gnew
-         call VecToGnew(VecIn)
+         end subroutine test_eigensolver
 
-         !Now set fields to be consistent with gnew
+         subroutine advance_test(MatOperator, VecIn, Res, ierr)
+            use dist_fn_arrays, only: gnew
+            implicit none
+            Mat, intent(in) :: MatOperator
+            Vec, intent(inout) :: VecIn, Res
+            PetscErrorCode, intent(inout) :: ierr
+            integer, parameter :: istep = 1
+            integer :: is
+            !First unpack input vector into gnew
+            call VecToGnew(VecIn)
 
-         !Now do a number of time steps
-         do is = 1, nadv
-            !Note by using a fixed istep we
-            !force the explicit terms to be excluded
-            !except for the very first call.
-            gnew = gnew * complex(0,1)
-         end do
+            !Now set fields to be consistent with gnew
 
-         !Now pack gnew into output
-         call GnewToVec(Res)
-      end subroutine advance_test
+            !Now do a number of time steps
+            do is = 1, nadv
+               !Note by using a fixed istep we
+               !force the explicit terms to be excluded
+               !except for the very first call.
+               gnew = gnew * complex(0, 1)
+            end do
 
+            !Now pack gnew into output
+            call GnewToVec(Res)
+         end subroutine advance_test
 
-      end module eigen_values
+         end module eigen_values
 
 #else
 

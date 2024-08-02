@@ -1756,7 +1756,7 @@ contains
 
             end subroutine run_eigensolver
 
-                        subroutine run_eigensolver
+            subroutine run_eigensolver
 
                use job_manage, only: time_message
                use mp, only: mp_abort, proc0

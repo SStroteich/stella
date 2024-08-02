@@ -1737,6 +1737,7 @@ contains
             public :: eigval_functional
             public :: time_eigval
             public :: run_eigensolver
+            public :: test_eigensolver
             real, dimension(2) :: time_eigval = 0.
 
          contains
@@ -1747,7 +1748,7 @@ contains
                eigval_functional = .false.
             end function eigval_functional
 
-            subroutine test_eigensolver
+            subroutine run_eigensolver
 
                use job_manage, only: time_message
                use mp, only: mp_abort, proc0

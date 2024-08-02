@@ -69,7 +69,8 @@ program stella
          call time_message(.false., time_diagnostics, ' diagnostics')
          ierr = error_unit()
          if (convergence_switch) then
-            if (stop_stella .and. proc0 .and. mod(istep, nwrite) == 0) write (*, *) 'Convergence test successful, stopping simulation.'
+            if (stop_stella .and. proc0 .and. mod(istep, nwrite) == 0) &
+                    write (*, *) 'Convergence test successful, stopping simulation.'
          end if
          call flush_output_file(ierr)
          istep = istep + 1

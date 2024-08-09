@@ -671,7 +671,7 @@ contains
 
       !Make a shell matrix operator (AdvMat)
       call MatCreateShell(PETSC_COMM_WORLD, eps_settings%local_size, eps_settings%local_size, &
-                          eps_settings%global_size, eps_settings%global_size, PETSC_NULL_INTEGER, mat_operator, ierr)
+                          eps_settings%global_size, eps_settings%global_size, PETSC_NULL_MAT, mat_operator, ierr)
 
       !Set the shell MATOP_MULT operation, i.e. which routine returns the result
       !of a AdvMat.x
@@ -1639,16 +1639,20 @@ contains
             use mp, only: mp_comm, proc0, nproc, barrier, iproc
             implicit none
             PetscErrorCode :: ierr
-            Mat :: my_operator
-            PetscInt :: n, Istart, Iend, i, index
+            Mat :: my_operator, my_shell_operator
+            Vec :: x,y
+            PetscInt :: n, Istart, Iend, i, index, one
             PetscInt :: n_converged, iteration_count
             EPS :: my_solver
             PetscScalar :: eig_val_r, eig_val_i
+            PetscInt :: Istart_x, Iend_x, Istart_y, Iend_y
+
             real :: start_time, end_time
 
             !Test the eigensolver
             PETSC_COMM_WORLD = mp_comm
-            n = 10000
+            n = 1000
+            one = 1
 
             !Initialise slepc
             call SlepcInitialize(PETSC_NULL_CHARACTER, ierr)
@@ -1660,20 +1664,40 @@ contains
             call MatSetUp(my_operator, ierr)
             if (proc0) write (*, *) "Matrix created"
             call MatGetOwnershipRange(my_operator, Istart, Iend, ierr)
-            write (*, *) "Rank: ", iproc, " Istart: ", Istart, " Iend: ", Iend
+            !write (*, *) "Rank: ", iproc, " Istart: ", Istart, " Iend: ", Iend
             call barrier
-            do i = Istart, Iend
-               index = i - 1
-               call MatSetValue(my_operator, index, index, complex(index * 1.0, (n - index - 1) * (1.0)), INSERT_VALUES, ierr)
+            do i = Istart, Iend-1
+               index = i
+               call MatSetValue(my_operator, index, index, dcmplx(dble(index+1), dble(n - index)), INSERT_VALUES, ierr)
             end do
             call MatAssemblyBegin(my_operator, MAT_FINAL_ASSEMBLY, ierr)
             call MatAssemblyEnd(my_operator, MAT_FINAL_ASSEMBLY, ierr)
 
             if (proc0) write (*, *) "Matrix assembled"
+
+            call VecCreateMPI(PETSC_COMM_WORLD, PETSC_DECIDE, n, x, ierr)
+            call VecCreateMPI(PETSC_COMM_WORLD, PETSC_DECIDE, n, y, ierr)
+            
+            call VecGetOwnershipRange(x, Istart_x, Iend_x, ierr)
+            call VecGetOwnershipRange(y, Istart_y, Iend_y, ierr)
+            call MatCreateShell(PETSC_COMM_WORLD, PETSC_DECIDE, PETSC_DECIDE, n, n, PETSC_NULL_MAT, my_shell_operator, ierr)
+            call MatShellSetOperation(my_shell_operator, MATOP_MULT, &
+                                      MatMult_Shell, ierr)
+            call MatGetOwnershipRange(my_shell_operator, Istart, Iend, ierr)
+            !write(*,*) 'Shell Rank: ', iproc, ' Istart: ', Istart, ' Iend: ', Iend
+            call barrier
+            if (proc0) write(*,*) 'Shell matrix created'
+
+
+
+
             call EPSCreate(PETSC_COMM_WORLD, my_solver, ierr)
-            call EPSSetOperators(my_solver, my_operator, PETSC_NULL_MAT, ierr)
-            !call EpsSetWhichEigenpairs(my_solver, EPS_LARGEST_REAL, ierr)
+            !call EPSSetOperators(my_solver, my_operator, PETSC_NULL_MAT, ierr)
+            call EPSSetOperators(my_solver, my_shell_operator, PETSC_NULL_MAT, ierr)
             call EPSSetFromOptions(my_solver, ierr)
+            call VecSet(x, complex(1.0,1.0)/sqrt(2.*real(n)), ierr)
+            !call VecView(x, PETSC_VIEWER_STDOUT_WORLD, ierr)
+            call EPSSetInitialSpace(my_solver, one, x, ierr)
             call ReportSolverSettings(my_solver)
             if (proc0) write (*, *) "Solver created"
             call EPSSolve(my_solver, ierr)
@@ -1685,6 +1709,8 @@ contains
             do i = 0, n_converged - 1
                call EPSGetEigenvalue(my_solver, i, eig_val_r, eig_val_i, ierr)
                if (proc0) write (*, *) "Eigenvalue: ", eig_val_r, " with magnitude: ", abs(eig_val_r)
+               call EPSGetEigenvector(my_solver, i, x, PETSC_NULL_VEC, ierr)
+               !call VecView(x, PETSC_VIEWER_STDOUT_WORLD, ierr)
             end do
             call EPSDestroy(my_solver, ierr)
             call MatDestroy(my_operator, ierr)
@@ -1697,30 +1723,45 @@ contains
 
          end subroutine test_eigensolver
 
-         subroutine advance_test(MatOperator, VecIn, Res, ierr)
-            use dist_fn_arrays, only: gnew
+      subroutine MatMult_Shell(A, x, y, ierr)
+            use petsc
             implicit none
-            Mat, intent(in) :: MatOperator
-            Vec, intent(inout) :: VecIn, Res
-            PetscErrorCode, intent(inout) :: ierr
-            integer, parameter :: istep = 1
-            integer :: is
-            !First unpack input vector into gnew
-            call VecToGnew(VecIn)
 
-            !Now set fields to be consistent with gnew
+            Mat, intent(in) :: A
+            Vec, intent(in) :: x
+            Vec, intent(out) :: y
+            PetscErrorCode, intent(out) :: ierr
+            PetscInt :: Istart, Iend, n, i, one
+            PetscScalar :: value_orig, value
+            PetscInt :: index
 
-            !Now do a number of time steps
-            do is = 1, nadv
-               !Note by using a fixed istep we
-               !force the explicit terms to be excluded
-               !except for the very first call.
-               gnew = gnew * complex(0, 1)
+            ! Get the ownership range for the vector
+            call VecGetOwnershipRange(x, Istart, Iend, ierr)
+            if (ierr /= 0) return
+            call VecGetSize(x, n, ierr)
+            if (ierr /= 0) return
+            one = 1
+            !call VecView(x, PETSC_VIEWER_STDOUT_WORLD, ierr)
+            ! Loop over the local portion of the vector
+            do i = Istart, Iend - 1
+               index = i
+               ! Get the value from the input vector
+               call VecGetValues(x,one, index, value_orig, ierr)
+               if (ierr /= 0) return
+               !write(*,*) 'Value ', i, ' : ', value_orig
+               ! Perform the operation
+               value = cmplx(dble(i+1), dble(n - i)) * value_orig
+               ! Set the value in the output vector
+               call VecSetValue(y, i, value, INSERT_VALUES, ierr)
+               if (ierr /= 0) return
             end do
 
-            !Now pack gnew into output
-            call GnewToVec(Res)
-         end subroutine advance_test
+            ! Assemble the output vector
+            call VecAssemblyBegin(y,ierr)
+            if (ierr /= 0) return
+            call VecAssemblyEnd(y,ierr)
+            if (ierr /= 0) return
+         end subroutine MatMult_Shell
 
          end module eigen_values
 

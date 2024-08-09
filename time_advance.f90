@@ -2380,7 +2380,7 @@ contains
       !if(proc0) write(*,*) 'g0dx_max', g0dx_max, 'ky_max', maxval(abs(aky))
       !if(proc0) write(*,*) 'g0dy_max', g0dy_max, 'kx_max', maxval(abs(akx))
       nonlinear_ev = g0dx_max * maxval(abs(aky)) + g0dy_max * maxval(abs(akx))
-      if (proc0) write (*, *) 'maximum nl ev ', nonlinear_ev, ' code_dt ', code_dt
+      !if (proc0) write (*, *) 'maximum nl ev ', nonlinear_ev, ' code_dt ', code_dt
       !nonlinear_ev_maxtime = scheme specific value/ nonlinear_ev
 
       deallocate (g0k, g0a, g0xy, g1xy, bracket)

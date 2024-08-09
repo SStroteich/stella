@@ -1640,7 +1640,7 @@ contains
             implicit none
             PetscErrorCode :: ierr
             Mat :: my_operator, my_shell_operator
-            Vec :: x,y
+            Vec :: x, y
             PetscInt :: n, Istart, Iend, i, index, one
             PetscInt :: n_converged, iteration_count
             EPS :: my_solver
@@ -1666,9 +1666,9 @@ contains
             call MatGetOwnershipRange(my_operator, Istart, Iend, ierr)
             !write (*, *) "Rank: ", iproc, " Istart: ", Istart, " Iend: ", Iend
             call barrier
-            do i = Istart, Iend-1
+            do i = Istart, Iend - 1
                index = i
-               call MatSetValue(my_operator, index, index, dcmplx(dble(index+1), dble(n - index)), INSERT_VALUES, ierr)
+               call MatSetValue(my_operator, index, index, dcmplx(dble(index + 1), dble(n - index)), INSERT_VALUES, ierr)
             end do
             call MatAssemblyBegin(my_operator, MAT_FINAL_ASSEMBLY, ierr)
             call MatAssemblyEnd(my_operator, MAT_FINAL_ASSEMBLY, ierr)
@@ -1677,7 +1677,7 @@ contains
 
             call VecCreateMPI(PETSC_COMM_WORLD, PETSC_DECIDE, n, x, ierr)
             call VecCreateMPI(PETSC_COMM_WORLD, PETSC_DECIDE, n, y, ierr)
-            
+
             call VecGetOwnershipRange(x, Istart_x, Iend_x, ierr)
             call VecGetOwnershipRange(y, Istart_y, Iend_y, ierr)
             call MatCreateShell(PETSC_COMM_WORLD, PETSC_DECIDE, PETSC_DECIDE, n, n, PETSC_NULL_MAT, my_shell_operator, ierr)
@@ -1686,16 +1686,13 @@ contains
             call MatGetOwnershipRange(my_shell_operator, Istart, Iend, ierr)
             !write(*,*) 'Shell Rank: ', iproc, ' Istart: ', Istart, ' Iend: ', Iend
             call barrier
-            if (proc0) write(*,*) 'Shell matrix created'
-
-
-
+            if (proc0) write (*, *) 'Shell matrix created'
 
             call EPSCreate(PETSC_COMM_WORLD, my_solver, ierr)
             !call EPSSetOperators(my_solver, my_operator, PETSC_NULL_MAT, ierr)
             call EPSSetOperators(my_solver, my_shell_operator, PETSC_NULL_MAT, ierr)
             call EPSSetFromOptions(my_solver, ierr)
-            call VecSet(x, complex(1.0,1.0)/sqrt(2.*real(n)), ierr)
+            call VecSet(x, complex(1.0, 1.0) / sqrt(2.*real(n)), ierr)
             !call VecView(x, PETSC_VIEWER_STDOUT_WORLD, ierr)
             call EPSSetInitialSpace(my_solver, one, x, ierr)
             call ReportSolverSettings(my_solver)
@@ -1723,7 +1720,7 @@ contains
 
          end subroutine test_eigensolver
 
-      subroutine MatMult_Shell(A, x, y, ierr)
+         subroutine MatMult_Shell(A, x, y, ierr)
             use petsc
             implicit none
 
@@ -1746,20 +1743,20 @@ contains
             do i = Istart, Iend - 1
                index = i
                ! Get the value from the input vector
-               call VecGetValues(x,one, index, value_orig, ierr)
+               call VecGetValues(x, one, index, value_orig, ierr)
                if (ierr /= 0) return
                !write(*,*) 'Value ', i, ' : ', value_orig
                ! Perform the operation
-               value = cmplx(dble(i+1), dble(n - i)) * value_orig
+               value = cmplx(dble(i + 1), dble(n - i)) * value_orig
                ! Set the value in the output vector
                call VecSetValue(y, i, value, INSERT_VALUES, ierr)
                if (ierr /= 0) return
             end do
 
             ! Assemble the output vector
-            call VecAssemblyBegin(y,ierr)
+            call VecAssemblyBegin(y, ierr)
             if (ierr /= 0) return
-            call VecAssemblyEnd(y,ierr)
+            call VecAssemblyEnd(y, ierr)
             if (ierr /= 0) return
          end subroutine MatMult_Shell
 

@@ -1222,7 +1222,7 @@ contains
       call VecToGnew(VecIn)
 
       !Now reset fields to be consistent with gnew
-      
+
       phi = 0
 
       nadv = 1
@@ -1642,7 +1642,7 @@ contains
             implicit none
             PetscErrorCode :: ierr
             Mat :: my_operator, my_shell_operator, my_real_operator
-            Vec :: x,y,z
+            Vec :: x, y, z
             PetscInt :: n, Istart, Iend, i, index, one
             PetscInt :: n_converged, iteration_count
             EPS :: my_solver
@@ -1667,9 +1667,9 @@ contains
             !How big is the "advance operator matrix"
             n_loc = d1_size * d2_size * d3_size * d4_size * d5_size_local
             n_glob = d1_size * d2_size * d3_size * d4_size * d5_size_global
-            write(*,*) 'Rank: ', iproc, ' Local size: ', n_loc, ' Global size: ', n_glob, ' Factor: ', n_glob/n_loc
+            write (*, *) 'Rank: ', iproc, ' Local size: ', n_loc, ' Global size: ', n_glob, ' Factor: ', n_glob / n_loc
             call barrier
-           
+
             !Test the eigensolver
             PETSC_COMM_WORLD = mp_comm
             n = 1000
@@ -1707,11 +1707,11 @@ contains
             call MatGetOwnershipRange(my_shell_operator, Istart, Iend, ierr)
             !write(*,*) 'Shell Rank: ', iproc, ' Istart: ', Istart, ' Iend: ', Iend
             call barrier
-            if (proc0) write(*,*) 'Shell matrix created'
+            if (proc0) write (*, *) 'Shell matrix created'
 
             call MatCreateShell(PETSC_COMM_WORLD, n_loc, n_loc, &
-                          n_glob, n_glob, PETSC_NULL_MAT, my_real_operator, ierr)
-                          
+                                n_glob, n_glob, PETSC_NULL_MAT, my_real_operator, ierr)
+
             !Set the shell MATOP_MULT operation, i.e. which routine returns the result
             !of a AdvMat.x
             call MatShellSetOperation(my_real_operator, MATOP_MULT, advance_eigen, ierr)
@@ -1721,23 +1721,19 @@ contains
             !call VecSet(z, complex(1.0,1.0)/sqrt(2.*real(n_glob)), ierr)
             !call VecToGnew(z)
             gold = gnew
-            
 
-
-            if(proc0) write(*,*) 'Real matrix created'
+            if (proc0) write (*, *) 'Real matrix created'
 
             call EPSCreate(PETSC_COMM_WORLD, my_solver, ierr)
             !call EPSSetOperators(my_solver, my_operator, PETSC_NULL_MAT, ierr)
             call EPSSetOperators(my_solver, my_real_operator, PETSC_NULL_MAT, ierr)
             !call EPSSetOperators(my_solver, my_shell_operator, PETSC_NULL_MAT, ierr)
-         
+
             call EPSSetFromOptions(my_solver, ierr)
-
-
 
             !Set the initial vector
             !Now destroy the vector
-            
+
             !call EPSSetInitialSpace(my_solver, one, x, ierr)
             call EPSSetInitialSpace(my_solver, one, z, ierr)
             call EPSSetProblemType(my_solver, EPS_NHEP, ierr)

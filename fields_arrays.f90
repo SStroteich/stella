@@ -26,7 +26,7 @@ module fields_arrays
    complex, dimension(:, :, :, :, :), allocatable :: phi_corr_GA, apar_corr_GA
    ! (naky, nakx, -nzgrid:nzgrid, ntubes, -vmu-layout-)
 
-   ! needed to calculate the energy
+   ! phi_zero needed to calculate the energy
    complex, dimension(:, :, :, :), allocatable :: phi_zero
    ! (naky, nakx, -nzgrid:nzgrid, ntubes)
 

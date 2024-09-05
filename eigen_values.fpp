@@ -1206,27 +1206,28 @@ contains
 
    !> Call back routine to represent linear advance operator
    subroutine advance_eigen(MatOperator, VecIn, Res, ierr)
-      use fields, only: init_fields
       use time_advance, only: advance_linear
       use dist_fn_arrays, only: gnew
+      use fields_arrays, only: phi, apar
+      use fields, only: advance_fields
       use stella_time, only: code_dt
+      use mp, only: iproc
       implicit none
       Mat, intent(in) :: MatOperator
       Vec, intent(inout) :: VecIn, Res
       PetscErrorCode, intent(inout) :: ierr
-      integer, parameter :: istep = 2
+      integer, parameter :: istep = 1
       integer :: is
       !First unpack input vector into gnew
       call VecToGnew(VecIn)
 
-      !Now set fields to be consistent with gnew
-      call init_fields
+      !Now reset fields to be consistent with gnew
+      
+      phi = 0
 
+      nadv = 1
       !Now do a number of time steps
       do is = 1, nadv
-         !Note by using a fixed istep we
-         !force the explicit terms to be excluded
-         !except for the very first call.
          call advance_linear(istep)
       end do
 
@@ -1401,11 +1402,6 @@ contains
                   do iz = -nzgrid, nzgrid
                      do ikx = 1, nakx
                         do iky = 1, naky
-                           !local_index= (ivmu-vmu_lo%llim_proc)*d1_size*d2_size*d3_size*d4_size + &
-                           !             (itube-1)*d1_size*d2_size*d3_size + &
-                           !             (iz+nzgrid)*d1_size*d2_size + &
-                           !             (ikx-1)*d1_size + &
-                           !             iky
                            local_index = local_index + 1
                            VecInArr(local_index) = gnew(iky, ikx, iz, itube, ivmu)
                         end do
@@ -1637,18 +1633,43 @@ contains
 
          subroutine test_eigensolver
             use mp, only: mp_comm, proc0, nproc, barrier, iproc
+            use dist_fn_arrays, only: gnew, gold
+            use fields_arrays, only: phi
+
+            use zgrid, only: nzgrid, ntubes
+            use kt_grids, only: naky, nakx
+            use stella_layouts, only: vmu_lo
             implicit none
             PetscErrorCode :: ierr
-            Mat :: my_operator, my_shell_operator
-            Vec :: x,y
+            Mat :: my_operator, my_shell_operator, my_real_operator
+            Vec :: x,y,z
             PetscInt :: n, Istart, Iend, i, index, one
             PetscInt :: n_converged, iteration_count
             EPS :: my_solver
             PetscScalar :: eig_val_r, eig_val_i
             PetscInt :: Istart_x, Iend_x, Istart_y, Iend_y
-
+            PetscInt :: d1_size, d2_size, d3_size, d4_size
+            PetscInt :: d5_size_local, d5_size_global
+            PetscInt :: n_loc, n_glob
             real :: start_time, end_time
 
+            call barrier
+            !Define dimensions for problem
+            d1_size = naky !Size of ky grid
+            d2_size = nakx !Size of kx grid
+            d3_size = 2 * nzgrid + 1 !Size of z grid
+            d4_size = ntubes !Size of tube grid
+            d5_size_local = (1 + vmu_lo%ulim_proc - vmu_lo%llim_proc) !Size of local distributed domain
+            if (vmu_lo%ulim_proc < vmu_lo%llim_proc) d5_size_local = 0
+
+            d5_size_global = (1 + vmu_lo%ulim_world - vmu_lo%llim_world) !Size of global distributed domain
+
+            !How big is the "advance operator matrix"
+            n_loc = d1_size * d2_size * d3_size * d4_size * d5_size_local
+            n_glob = d1_size * d2_size * d3_size * d4_size * d5_size_global
+            write(*,*) 'Rank: ', iproc, ' Local size: ', n_loc, ' Global size: ', n_glob, ' Factor: ', n_glob/n_loc
+            call barrier
+           
             !Test the eigensolver
             PETSC_COMM_WORLD = mp_comm
             n = 1000
@@ -1688,16 +1709,38 @@ contains
             call barrier
             if (proc0) write(*,*) 'Shell matrix created'
 
+            call MatCreateShell(PETSC_COMM_WORLD, n_loc, n_loc, &
+                          n_glob, n_glob, PETSC_NULL_MAT, my_real_operator, ierr)
+                          
+            !Set the shell MATOP_MULT operation, i.e. which routine returns the result
+            !of a AdvMat.x
+            call MatShellSetOperation(my_real_operator, MATOP_MULT, advance_eigen, ierr)
+            call VecCreateMPI(PETSC_COMM_WORLD, n_loc, n_glob, z, ierr)
+            call GnewToVec(z)
+            !call VecView(z, PETSC_VIEWER_STDOUT_WORLD, ierr)
+            !call VecSet(z, complex(1.0,1.0)/sqrt(2.*real(n_glob)), ierr)
+            !call VecToGnew(z)
+            gold = gnew
+            
 
 
+            if(proc0) write(*,*) 'Real matrix created'
 
             call EPSCreate(PETSC_COMM_WORLD, my_solver, ierr)
             !call EPSSetOperators(my_solver, my_operator, PETSC_NULL_MAT, ierr)
-            call EPSSetOperators(my_solver, my_shell_operator, PETSC_NULL_MAT, ierr)
+            call EPSSetOperators(my_solver, my_real_operator, PETSC_NULL_MAT, ierr)
+            !call EPSSetOperators(my_solver, my_shell_operator, PETSC_NULL_MAT, ierr)
+         
             call EPSSetFromOptions(my_solver, ierr)
-            call VecSet(x, complex(1.0,1.0)/sqrt(2.*real(n)), ierr)
-            !call VecView(x, PETSC_VIEWER_STDOUT_WORLD, ierr)
-            call EPSSetInitialSpace(my_solver, one, x, ierr)
+
+
+
+            !Set the initial vector
+            !Now destroy the vector
+            
+            !call EPSSetInitialSpace(my_solver, one, x, ierr)
+            call EPSSetInitialSpace(my_solver, one, z, ierr)
+            call EPSSetProblemType(my_solver, EPS_NHEP, ierr)
             call ReportSolverSettings(my_solver)
             if (proc0) write (*, *) "Solver created"
             call EPSSolve(my_solver, ierr)
@@ -1709,11 +1752,16 @@ contains
             do i = 0, n_converged - 1
                call EPSGetEigenvalue(my_solver, i, eig_val_r, eig_val_i, ierr)
                if (proc0) write (*, *) "Eigenvalue: ", eig_val_r, " with magnitude: ", abs(eig_val_r)
-               call EPSGetEigenvector(my_solver, i, x, PETSC_NULL_VEC, ierr)
+               !call EPSGetEigenvector(my_solver, i, x, PETSC_NULL_VEC, ierr)
                !call VecView(x, PETSC_VIEWER_STDOUT_WORLD, ierr)
             end do
             call EPSDestroy(my_solver, ierr)
             call MatDestroy(my_operator, ierr)
+            call MatDestroy(my_shell_operator, ierr)
+            call MatDestroy(my_real_operator, ierr)
+            call VecDestroy(x, ierr)
+            call VecDestroy(y, ierr)
+            call VecDestroy(z, ierr)
             if (proc0) write (*, *) "Matrix destroyed"
             call cpu_time(end_time)
             if (proc0) write (*, *) "Time taken: ", end_time - start_time

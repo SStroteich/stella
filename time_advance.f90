@@ -999,73 +999,16 @@ contains
 
       !> save value of phi
       !> for use in diagnostics (to obtain frequency)
-      phi_old = phi
+      !phi_old = phi
+  
+      ! Ensure fields are consistent with gnew.
+      !call advance_fields(gnew, phi, apar, dist='gbar')
 
-      ! Flag which is set to true once we've taken a step without needing to
-      ! reset dt (which can be done by the nonlinear term(s))
-      time_advance_successful = .false.
-
-      ! If cfl_cushion_lower is chosen too close to cfl_cushion_upper, then
-      ! we might get stuck restarting the time step over and over, so exit stella
-      count_restarts = 1
-
-      ! Attempt the Lie or flip-flop time advance until we've done it without the
-      ! timestep changing.
-      do while (.not. time_advance_successful)
-
-         ! If we've already attempted a time advance then we've updated gnew, so reset it.
-         gnew = gold
-
-         ! Ensure fields are consistent with gnew.
-         call advance_fields(gnew, phi, apar, dist='gbar')
-
-         ! Keep track whether any routine wants to modify the time step
-         restart_time_step = .false.
-
-         !> reverse the order of operations every time step
-         !> as part of alternating direction operator splitting
-         !> this is needed to ensure 2nd order accuracy in time
-         if (mod(istep, 2) == 1 .or. .not. flip_flop) then
-
-            !> Advance the explicit parts of the GKE
-            if (debug) write (*, *) 'time_advance::advance_explicit'
-            if (.not. fully_implicit) call advance_explicit_linear(gnew, restart_time_step, istep)
-
-            !> Use operator splitting to separately evolve all terms treated implicitly
-            if (.not. restart_time_step .and. .not. fully_explicit) call advance_implicit(istep, phi, apar, gnew)
-         else
-            if (.not. fully_explicit) call advance_implicit(istep, phi, apar, gnew)
-            if (.not. fully_implicit) call advance_explicit_linear(gnew, restart_time_step, istep)
-         end if
-
-         ! If the time step has not been restarted, the time advance was succesfull
-         ! Otherwise, discard changes to gnew and start the time step again, fields
-         ! will have to be recalculated
-         if (.not. restart_time_step) then
-            time_advance_successful = .true.
-         else
-            count_restarts = count_restarts + 1
-            fields_updated = .false.
-         end if
-      end do
-
-      ! presumably this is to do with the radially global version of the code?
-      ! perhaps it could be packaged together with thee update_delay_krook code
-      ! below and made into a single call where all of this happens so that
-      ! users of the flux tube version of the code need not worry about it.
-      if (source_option_switch == source_option_projection) then
-         call project_out_zero(gold, gnew)
-         fields_updated = .false.
-      end if
-
-      gold = gnew
-
-      !> Ensure fields are updated so that omega calculation is correct.
-      call advance_fields(gnew, phi, apar, dist='gbar')
-
-      !update the delay parameters for the Krook operator
-      if (source_option_switch == source_option_krook) call update_tcorr_krook(gnew)
-      if (include_qn_source) call update_quasineutrality_source
+      ! Keep track whether any routine wants to modify the time step
+      restart_time_step = .false.
+      !> Advance the explicit parts of the GKE
+      if (.not. fully_implicit) call advance_explicit_linear(gnew, restart_time_step, istep)
+      
       nonlinear = nonlinear_temp
 
    end subroutine advance_linear
@@ -1796,7 +1739,7 @@ contains
       use mirror_terms, only: advance_mirror_explicit
       use flow_shear, only: advance_parallel_flow_shear
       use multibox, only: include_multibox_krook, add_multibox_krook
-      use mp, only: proc0
+      use mp, only: proc0,iproc
 
       implicit none
 
@@ -1860,6 +1803,7 @@ contains
             if (debug) write (*, *) 'time_advance::advance_stella::advance_explicit::solve_gke::advance_mirror_explicit'
             call advance_mirror_explicit(gin, rhs)
          end if
+         !write(*,*) 'rank: ',iproc,' pre drifts rhs_ky = ', maxval(abs(rhs_ky)), 'minimum rhs_ky = ', minval(abs(rhs_ky))
 
          if (.not. drifts_implicit) then
             !> calculate and add alpha-component of magnetic drift term to RHS of GK eqn
@@ -1874,6 +1818,7 @@ contains
             if (debug) write (*, *) 'time_advance::advance_stella::advance_explicit::solve_gke::advance_wstar_explicit'
             call advance_wstar_explicit(phi, rhs)
          end if
+         !write(*,*) 'rank: ',iproc,' post drifts rhs_ky = ', maxval(abs(rhs_ky)), 'minimum rhs_ky = ', minval(abs(rhs_ky))
 
          !> calculate and add contribution from collisions to RHS of GK eqn
          if (include_collisions .and. .not. collisions_implicit) call advance_collisions_explicit(gin, phi, rhs)
@@ -1911,7 +1856,10 @@ contains
          if (include_multibox_krook) call add_multibox_krook(gin, rhs)
 
       end if
-
+      !> print the value of all options
+      !if (proc0) write (*, *) 'include mirror .and. not mirror_implicit = ', include_mirror .and. .not. mirror_implicit, &
+      !   'include parallel streaming .and. not stream_implicit = ', include_parallel_streaming .and. .not. stream_implicit, '.not. drifts_implicit = ', .not. drifts_implicit, &
+      !   'include collisions .and. not collisions_implicit = ', include_collisions .and. .not. collisions_implicit, 'hyper_dissipation = ', hyper_dissipation
       fields_updated = .false.
 
       if (allocated(rhs_y)) deallocate (rhs_y)

@@ -228,7 +228,11 @@ contains
             deallocate (omega_avg1)
          end if
       end if
-
+      !check for NaN in omega_window
+      if (proc0 .and. any(isNan(abs(omega_window)))) then
+         conv_exit = .true.
+         write(*,*) 'NaN in omega_window'
+      end if
       call broadcast(conv_exit)
 
    end subroutine testing_convergence

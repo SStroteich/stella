@@ -1222,7 +1222,7 @@ contains
       call VecToGnew(VecIn)
 
       !Now reset fields to be consistent with gnew
-      
+
       phi = 0
 
       nadv = 1
@@ -1650,7 +1650,7 @@ contains
             implicit none
             PetscErrorCode :: ierr
             Mat :: my_operator, my_shell_operator, my_real_operator
-            Vec :: x,y,z
+            Vec :: x, y, z
             PetscInt :: n, Istart, Iend, i, index, one
             PetscInt :: n_converged, iteration_count
             EPS :: my_solver
@@ -1682,7 +1682,7 @@ contains
             n_loc = d1_size * d2_size * d3_size * d4_size * d5_size_local
             n_glob = d1_size * d2_size * d3_size * d4_size * d5_size_global
             call barrier
-           
+
             !Test the eigensolver
             PETSC_COMM_WORLD = mp_comm
             one = 1
@@ -1711,8 +1711,8 @@ contains
             call cpu_time(start_time)
             !Create the shell matrix
             call MatCreateShell(PETSC_COMM_WORLD, n_loc, n_loc, &
-                          n_glob, n_glob, PETSC_NULL_MAT, my_real_operator, ierr)
-                          
+                                n_glob, n_glob, PETSC_NULL_MAT, my_real_operator, ierr)
+
             !Set the shell MATOP_MULT operation, i.e. which routine returns the result
             !of a AdvMat.x
             call MatShellSetOperation(my_real_operator, MATOP_MULT, advance_eigen, ierr)

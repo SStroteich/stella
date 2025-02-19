@@ -1000,7 +1000,7 @@ contains
       !> save value of phi
       !> for use in diagnostics (to obtain frequency)
       !phi_old = phi
-  
+
       ! Ensure fields are consistent with gnew.
       !call advance_fields(gnew, phi, apar, dist='gbar')
 
@@ -1008,7 +1008,7 @@ contains
       restart_time_step = .false.
       !> Advance the explicit parts of the GKE
       if (.not. fully_implicit) call advance_explicit_linear(gnew, restart_time_step, istep)
-      
+
       nonlinear = nonlinear_temp
 
    end subroutine advance_linear
@@ -1739,7 +1739,7 @@ contains
       use mirror_terms, only: advance_mirror_explicit
       use flow_shear, only: advance_parallel_flow_shear
       use multibox, only: include_multibox_krook, add_multibox_krook
-      use mp, only: proc0,iproc
+      use mp, only: proc0, iproc
 
       implicit none
 

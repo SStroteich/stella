@@ -35,8 +35,8 @@ program stella
    !> Initialize stella
    call init_stella(istep0, get_git_version(), get_git_date())
    if (eigenvalue_option) then
-      call test_eigensolver
-      !call run_eigensolver
+      !call test_eigensolver
+      call run_eigensolver
    else
       !> Diagnose stella
       if (debug) write (*, *) 'stella::diagnose_stella'

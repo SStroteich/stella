@@ -1603,7 +1603,7 @@ contains
             get_default_requires_index_eigval_config = .false.
          end function get_default_requires_index_eigval_config
 
-         subroutine run_eigensolver
+         subroutine test_eigensolver
             use job_manage, only: time_message
             use mp, only: mp_abort, proc0, barrier
 
@@ -1629,12 +1629,20 @@ contains
             !Stop timer
             call time_message(.false., time_eigval, ' Eigensolver')
 
-         end subroutine run_eigensolver
+         end subroutine test_eigensolver
 
-         subroutine test_eigensolver
+
+         subroutine run_eigensolver
             use mp, only: mp_comm, proc0, nproc, barrier, iproc
             use dist_fn_arrays, only: gnew, gold
             use fields_arrays, only: phi
+
+            use stella_io, only: EigNetcdfID, init_eigenfunc_file, add_eigenpair_to_file, finish_eigenfunc_file
+            use file_utils, only: run_name
+            use run_parameters, only: fphi, fapar, fbpar
+
+
+
 
             use zgrid, only: nzgrid, ntubes
             use kt_grids, only: naky, nakx
@@ -1652,6 +1660,12 @@ contains
             PetscInt :: d5_size_local, d5_size_global
             PetscInt :: n_loc, n_glob
             real :: start_time, end_time
+            type(EigNetcdfID) :: io_ids
+            type(EpsSettings) :: my_settings
+
+
+            complex, dimension(:), allocatable :: eigenvalues
+            real, dimension(:), allocatable :: local_conv   
 
             call barrier
             !Define dimensions for problem
@@ -1667,109 +1681,105 @@ contains
             !How big is the "advance operator matrix"
             n_loc = d1_size * d2_size * d3_size * d4_size * d5_size_local
             n_glob = d1_size * d2_size * d3_size * d4_size * d5_size_global
-            write(*,*) 'Rank: ', iproc, ' Local size: ', n_loc, ' Global size: ', n_glob, ' Factor: ', n_glob/n_loc
             call barrier
            
             !Test the eigensolver
             PETSC_COMM_WORLD = mp_comm
-            n = 1000
             one = 1
+           
 
             !Initialise slepc
-            call SlepcInitialize(PETSC_NULL_CHARACTER, ierr)
+            !call SlepcInitialize(PETSC_NULL_CHARACTER, ierr)
             if (proc0) write (*, *) "Slepc initialised"
+            call init_eigval
+
+            if (proc0) write (*, *) "Eigval initialised"
+            if (proc0) write (*, *) eigval_config%analyse_ddt_operator
+            if (proc0) write (*, *) eigval_config%extraction_option
+            if (proc0) write (*, *) eigval_config%max_iter
+            if (proc0) write (*, *) eigval_config%n_eig
+            if (proc0) write (*, *) eigval_config%nadv
+            if (proc0) write (*, *) eigval_config%save_restarts
+            if (proc0) write (*, *) eigval_config%solver_option
+            if (proc0) write (*, *) eigval_config%targ_im
+            if (proc0) write (*, *) eigval_config%targ_re
+            if (proc0) write (*, *) eigval_config%tolerance
+            if (proc0) write (*, *) eigval_config%transform_option
+            if (proc0) write (*, *) eigval_config%use_ginit
+            if (proc0) write (*, *) eigval_config%which_option
+
             call cpu_time(start_time)
-            call MatCreate(PETSC_COMM_WORLD, my_operator, ierr)
-            call MatSetSizes(my_operator, PETSC_DECIDE, PETSC_DECIDE, n, n, ierr)
-            call MatSetFromOptions(my_operator, ierr)
-            call MatSetUp(my_operator, ierr)
-            if (proc0) write (*, *) "Matrix created"
-            call MatGetOwnershipRange(my_operator, Istart, Iend, ierr)
-            !write (*, *) "Rank: ", iproc, " Istart: ", Istart, " Iend: ", Iend
-            call barrier
-            do i = Istart, Iend - 1
-               index = i
-               call MatSetValue(my_operator, index, index, dcmplx(dble(index + 1), dble(n - index)), INSERT_VALUES, ierr)
-            end do
-            call MatAssemblyBegin(my_operator, MAT_FINAL_ASSEMBLY, ierr)
-            call MatAssemblyEnd(my_operator, MAT_FINAL_ASSEMBLY, ierr)
-
-            if (proc0) write (*, *) "Matrix assembled"
-
-            call VecCreateMPI(PETSC_COMM_WORLD, PETSC_DECIDE, n, x, ierr)
-            call VecCreateMPI(PETSC_COMM_WORLD, PETSC_DECIDE, n, y, ierr)
-
-            call VecGetOwnershipRange(x, Istart_x, Iend_x, ierr)
-            call VecGetOwnershipRange(y, Istart_y, Iend_y, ierr)
-            call MatCreateShell(PETSC_COMM_WORLD, PETSC_DECIDE, PETSC_DECIDE, n, n, PETSC_NULL_MAT, my_shell_operator, ierr)
-            call MatShellSetOperation(my_shell_operator, MATOP_MULT, &
-                                      MatMult_Shell, ierr)
-            call MatGetOwnershipRange(my_shell_operator, Istart, Iend, ierr)
-            !write(*,*) 'Shell Rank: ', iproc, ' Istart: ', Istart, ' Iend: ', Iend
-            call barrier
-            if (proc0) write(*,*) 'Shell matrix created'
-
+            !Create the shell matrix
             call MatCreateShell(PETSC_COMM_WORLD, n_loc, n_loc, &
                           n_glob, n_glob, PETSC_NULL_MAT, my_real_operator, ierr)
                           
             !Set the shell MATOP_MULT operation, i.e. which routine returns the result
             !of a AdvMat.x
             call MatShellSetOperation(my_real_operator, MATOP_MULT, advance_eigen, ierr)
+            !Create the vector and set it to gnew
             call VecCreateMPI(PETSC_COMM_WORLD, n_loc, n_glob, z, ierr)
             call GnewToVec(z)
-            !call VecView(z, PETSC_VIEWER_STDOUT_WORLD, ierr)
-            !call VecSet(z, complex(1.0,1.0)/sqrt(2.*real(n_glob)), ierr)
-            !call VecToGnew(z)
-            gold = gnew
-            
 
+            gold = gnew
 
             if(proc0) write(*,*) 'Real matrix created'
 
+            !Create Eigenvalue problem solver
             call EPSCreate(PETSC_COMM_WORLD, my_solver, ierr)
-            !call EPSSetOperators(my_solver, my_operator, PETSC_NULL_MAT, ierr)
+            !Set the operator
             call EPSSetOperators(my_solver, my_real_operator, PETSC_NULL_MAT, ierr)
-            !call EPSSetOperators(my_solver, my_shell_operator, PETSC_NULL_MAT, ierr)
-         
-            call EPSSetFromOptions(my_solver, ierr)
-
-
-
-            !Set the initial vector
-            !Now destroy the vector
+            !Set the options from commandline
+            call EPSSetFromOptions(my_solver, ierr) 
             
-            !call EPSSetInitialSpace(my_solver, one, x, ierr)
+            !Set the initial guess
             call EPSSetInitialSpace(my_solver, one, z, ierr)
+            !Set the problem type
             call EPSSetProblemType(my_solver, EPS_NHEP, ierr)
+            !Report the solver settings
             call ReportSolverSettings(my_solver)
             if (proc0) write (*, *) "Solver created"
+            !Solve the problem
             call EPSSolve(my_solver, ierr)
             if (proc0) write (*, *) "Solved"
+            !Get the number of converged eigenvalues
             call EPSGetConverged(my_solver, n_converged, ierr)
+            !Get the number of iterations
             call EPSGetIterationNumber(my_solver, iteration_count, ierr)
             if (proc0) write (*, *) "Converged: ", n_converged, " after ", iteration_count, " iterations"
-
+            if (proc0) call init_eigenfunc_file(trim(run_name)//".eig.out.nc", fphi, fapar, fbpar, io_ids)
+            if (.not. allocated(eigenvalues)) then
+               allocate (eigenvalues(n_converged))
+            end if
+            if (.not. allocated(local_conv)) then
+               allocate (local_conv(n_converged))
+            end if
+            !Get the eigenvalues
             do i = 0, n_converged - 1
                call EPSGetEigenvalue(my_solver, i, eig_val_r, eig_val_i, ierr)
                if (proc0) write (*, *) "Eigenvalue: ", eig_val_r, " with magnitude: ", abs(eig_val_r)
                !call EPSGetEigenvector(my_solver, i, x, PETSC_NULL_VEC, ierr)
                !call VecView(x, PETSC_VIEWER_STDOUT_WORLD, ierr)
+               eigenvalues(i + 1) = cmplx(PetscRealPart(eig_val_r), PetscImaginaryPart(eig_val_r))
+               local_conv(i + 1) = i + 1
             end do
+            if (proc0) call add_eigenpair_to_file(eigenvalues, io_ids, local_conv)
+
+            if (proc0) call finish_eigenfunc_file(io_ids)
+            !Destroy all the objects
             call EPSDestroy(my_solver, ierr)
-            call MatDestroy(my_operator, ierr)
-            call MatDestroy(my_shell_operator, ierr)
             call MatDestroy(my_real_operator, ierr)
-            call VecDestroy(x, ierr)
-            call VecDestroy(y, ierr)
             call VecDestroy(z, ierr)
+
             if (proc0) write (*, *) "Matrix destroyed"
             call cpu_time(end_time)
             if (proc0) write (*, *) "Time taken: ", end_time - start_time
             if (proc0) write (*, *) "Total CPU Time taken: ", (end_time - start_time) * nproc
-            call SlepcFinalize(ierr)
+            call finish_eigval
+
+            !call SlepcFinalize(ierr)
             if (proc0) write (*, *) "Slepc finalised"
 
-         end subroutine test_eigensolver
+         end subroutine run_eigensolver
 
          subroutine MatMult_Shell(A, x, y, ierr)
             use petsc

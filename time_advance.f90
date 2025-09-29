@@ -844,7 +844,7 @@ contains
 
    subroutine advance_stella(istep, stop_stella)
 
-      use dist_fn_arrays, only: gold, gnew
+      use dist_fn_arrays, only: gold, gnew, gold2, gold3
       use fields_arrays, only: phi, apar
       use fields_arrays, only: phi_old
       use fields, only: advance_fields, fields_updated
@@ -885,7 +885,6 @@ contains
       ! If cfl_cushion_lower is chosen too close to cfl_cushion_upper, then
       ! we might get stuck restarting the time step over and over, so exit stella
       count_restarts = 1
-
       ! Attempt the Lie or flip-flop time advance until we've done it without the
       ! timestep changing.
       do while (.not. time_advance_successful)
@@ -950,7 +949,8 @@ contains
          call project_out_zero(gold, gnew)
          fields_updated = .false.
       end if
-
+      gold3 = gold2
+      gold2=gold
       gold = gnew
 
       !> Ensure fields are updated so that omega calculation is correct.

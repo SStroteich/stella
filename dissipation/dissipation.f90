@@ -32,7 +32,7 @@ contains
    subroutine init_dissipation
 
       use mp, only: proc0
-      use hyper, only: init_hyper
+      use hyper, only: init_hyper, k2max
 
       implicit none
 
@@ -67,6 +67,8 @@ contains
 
       if (hyper_dissipation) then
          call init_hyper
+      else 
+         k2max = 1.0
       end if
 
    end subroutine init_dissipation

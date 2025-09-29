@@ -260,7 +260,7 @@ contains
       use zgrid, only: nzgrid, ntubes
       use kt_grids, only: naky, nakx
       use vpamu_grids, only: nvpa, nmu
-      use dist_fn_arrays, only: gnew, gold, g_gyro
+      use dist_fn_arrays, only: gnew, gold, g_gyro, gold2, gold3
       use dist_fn_arrays, only: gvmu, gvmu0
 
       implicit none
@@ -271,6 +271,12 @@ contains
       if (.not. allocated(gold)) &
          allocate (gold(naky, nakx, -nzgrid:nzgrid, ntubes, vmu_lo%llim_proc:vmu_lo%ulim_alloc))
       gold = 0.
+      if (.not. allocated(gold2)) &
+         allocate (gold2(naky, nakx, -nzgrid:nzgrid, ntubes, vmu_lo%llim_proc:vmu_lo%ulim_alloc))
+      gold2 = 0.
+      if (.not. allocated(gold3)) &
+         allocate (gold3(naky, nakx, -nzgrid:nzgrid, ntubes, vmu_lo%llim_proc:vmu_lo%ulim_alloc))
+      gold3 = 0.
       if (.not. allocated(g_gyro)) &
          allocate (g_gyro(naky, nakx, -nzgrid:nzgrid, ntubes, vmu_lo%llim_proc:vmu_lo%ulim_alloc))
       g_gyro = 0.
@@ -324,12 +330,14 @@ contains
 
    subroutine deallocate_arrays
 
-      use dist_fn_arrays, only: gnew, gold, g_gyro, gvmu, gvmu0
+      use dist_fn_arrays, only: gnew, gold, g_gyro, gvmu, gvmu0, gold2, gold3
 
       implicit none
 
       if (allocated(gnew)) deallocate (gnew)
       if (allocated(gold)) deallocate (gold)
+      if (allocated(gold2)) deallocate (gold2)
+      if (allocated(gold3)) deallocate (gold3)
       if (allocated(g_gyro)) deallocate (g_gyro)
       if (allocated(gvmu)) deallocate (gvmu)
       if (allocated(gvmu0)) deallocate (gvmu0)

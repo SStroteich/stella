@@ -225,7 +225,7 @@ contains
       complex, dimension(:, :, -nzgrid:, :, vmu_lo%llim_proc:), intent(out) :: dgdz
 
       call get_dgdz_fourth_order(g, dgdz)
-      dgdz = - code_dt * D_zed * delzed(0)**4 / 16 * dgdz
+      dgdz = -code_dt * D_zed * delzed(0)**4 / 16 * dgdz
 
    end subroutine advance_hyper_zed
 

@@ -492,9 +492,9 @@ contains
             call g_to_h(gnew, phi, fphi)
             !> get_free_energy assumes the non adiabtic part h to be passed in
             call get_free_energy2(gnew, g4, phi_out, free_energy_kxkyz, &
-                                 diss_perp_kxkyz, diss_zed_kxkyz, diss_vpa_kxkyz, &
-                                 drive_kxkyz, drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz, &
-                                 part_flux, mom_flux, heat_flux, istep)
+                                  diss_perp_kxkyz, diss_zed_kxkyz, diss_vpa_kxkyz, &
+                                  drive_kxkyz, drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz, &
+                                  part_flux, mom_flux, heat_flux, istep)
             call g_to_h(gnew, phi, -fphi)
             call set_vpa_weights(.False.)
          end if
@@ -647,7 +647,7 @@ contains
          do it = 1, ntubes
             do iz = -nzgrid, nzgrid
                g0(:, :, iz, it, ivmu) = term(:, :, iz, it, ivmu) * conjg(h(:, :, iz, it, ivmu)) &
-                                       / (maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is))
+                                        / (maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is))
             end do
          end do
       end do
@@ -659,17 +659,17 @@ contains
          do iz = -nzgrid, nzgrid
             do ikx = 1, nakx
                term_kxkyz(:, ikx, iz, it, is) = 0.5 * mode_fac(:) * (real(velocity_integral1(:, ikx, iz, it, is)))
-      !         sum_spec(is) = sum_spec(is) + sum(term_kxkyz(:, ikx, iz, it, is) * dVolume(ia, ikx, iz))
+               !         sum_spec(is) = sum_spec(is) + sum(term_kxkyz(:, ikx, iz, it, is) * dVolume(ia, ikx, iz))
             end do
-            sum_spec(is) = sum_spec(is) + sum(term_kxkyz(:, :, iz , :, is) * dVolume(1,1,iz))
+            sum_spec(is) = sum_spec(is) + sum(term_kxkyz(:, :, iz, :, is) * dVolume(1, 1, iz))
          end do
          sum_spec(is) = sum_spec(is) / volume_total
          sum_total = sum_total + sum_spec(is)
       end do
       ! end if
 
-      call sum_allreduce (sum_spec)
-      call sum_allreduce (sum_total)
+      call sum_allreduce(sum_spec)
+      call sum_allreduce(sum_total)
    end subroutine get_one_energy_term
 
    !> Calculate free energy, the drive term and the dissipation
@@ -903,11 +903,11 @@ contains
    end subroutine get_free_energy
 
    subroutine get_free_energy2(h, g, phi, free_energy_kxkyz, diss_perp_kxkyz, diss_zed_kxkyz, diss_vpa_kxkyz, &
-                              drive_kxkyz, drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz, &
-                              part_flux, mom_flux, heat_flux, istep)
+                               drive_kxkyz, drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz, &
+                               part_flux, mom_flux, heat_flux, istep)
 
       use mp, only: proc0
-      use dist_fn_arrays, only: g1, g2, g3, gvmu0, kperp2, gold, gold2, gold3 
+      use dist_fn_arrays, only: g1, g2, g3, gvmu0, kperp2, gold, gold2, gold3
       use fields_arrays, only: phi_zero
       use stella_layouts, only: vmu_lo
       use stella_layouts, only: iv_idx, imu_idx, is_idx
@@ -1006,7 +1006,7 @@ contains
          ! Calculate free energy
          ! This is g * h_conj
          factor_spec = spec%dens * spec%temp
-         g1 = (g - gold2) /code_dt
+         g1 = (g - gold2) / code_dt
          energy_total = 0.0
          call get_one_energy_term(h, g1, factor_spec, energy_total, energy_sum, free_energy_kxkyz)
          ! call g_to_h(gold2, phi, -fphi)
@@ -1015,9 +1015,9 @@ contains
 
          ! Calculate dissipation perpendicular
          do is = 1, nspec
-            factor_spec(is) = - D_hyper * spec(is)%dens * spec(is)%temp
+            factor_spec(is) = -D_hyper * spec(is)%dens * spec(is)%temp
          end do
-         ! call advance_hyper_dissipation(g1) 
+         ! call advance_hyper_dissipation(g1)
          do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
             iv = iv_idx(vmu_lo, ivmu)
             imu = imu_idx(vmu_lo, ivmu)
@@ -1080,11 +1080,11 @@ contains
          g1 = g1 / code_dt
          call get_one_energy_term(h, g1, factor_spec, drifts_term, drifts_sum, drifts_kxkyz)
 
-         !Calculate streaming - using h 
+         !Calculate streaming - using h
          g1 = 0
-         call advance_parallel_streaming_explicit (g, phi, g1)
-         g1 = g1/code_dt
-         ! do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc 
+         call advance_parallel_streaming_explicit(g, phi, g1)
+         g1 = g1 / code_dt
+         ! do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
          !    !call get_dgdz_centered(h(:, :, :, :, ivmu), ivmu, g1(:, :, :, :, ivmu))
          !    iv = iv_idx(vmu_lo, ivmu)
          !    imu = imu_idx(vmu_lo, ivmu)
@@ -1100,10 +1100,10 @@ contains
          end do
          call get_one_energy_term(h, g1, factor_spec, streaming_term, streaming_sum, streaming_kxkyz)
 
-         !Calculate mirror - using h 
+         !Calculate mirror - using h
          g1 = 0
-         call advance_mirror_explicit (g, g1)
-         g1 = g1 /code_dt
+         call advance_mirror_explicit(g, g1)
+         g1 = g1 / code_dt
          do is = 1, nspec
             factor_spec(is) = spec(is)%dens * spec(is)%temp
          end do
@@ -1124,7 +1124,7 @@ contains
       total_sum = diss_perp_sum + diss_zed_sum + diss_vpa_sum + drive_sum + drifts_sum + streaming_sum + mirror_sum + nonlinear_sum
       if (proc0) then
       write (energy_unit, '(12e20.8E3)') code_time, energy_sum, diss_perp_sum, diss_zed_sum, diss_vpa_sum, drive_sum, drive_sum_via_flux, drifts_sum, streaming_sum, mirror_sum &
-            , nonlinear_sum, total_sum 
+            , nonlinear_sum, total_sum
          call flush (energy_unit)
       end if
 

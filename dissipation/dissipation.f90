@@ -67,7 +67,7 @@ contains
 
       if (hyper_dissipation) then
          call init_hyper
-      else 
+      else
          k2max = 1.0
       end if
 

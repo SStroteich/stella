@@ -486,6 +486,8 @@ contains
             if (debug) write (*, *) 'stella_diagnostics::write_free_energy'
             call set_vpa_weights(.True.)
             g4 = gnew
+            fields_updated = .false.
+            call advance_fields(gnew, phi, apar, dist='gbar')
             phi = phi_out
             call g_to_h(gnew, phi, fphi)
             !> get_free_energy assumes the non adiabtic part h to be passed in
@@ -905,7 +907,7 @@ contains
                               part_flux, mom_flux, heat_flux, istep)
 
       use mp, only: proc0
-      use dist_fn_arrays, only: g1, g2, g3, gvmu0, kperp2, gold2, gold3 
+      use dist_fn_arrays, only: g1, g2, g3, gvmu0, kperp2, gold, gold2, gold3 
       use fields_arrays, only: phi_zero
       use stella_layouts, only: vmu_lo
       use stella_layouts, only: iv_idx, imu_idx, is_idx
@@ -1004,8 +1006,12 @@ contains
          ! Calculate free energy
          ! This is g * h_conj
          factor_spec = spec%dens * spec%temp
-         g1 = (g - gold2) /code_dt 
+         g1 = (g - gold2) /code_dt
+         energy_total = 0.0
          call get_one_energy_term(h, g1, factor_spec, energy_total, energy_sum, free_energy_kxkyz)
+         ! call g_to_h(gold2, phi, -fphi)
+         ! g2 = (h - gold2) /code_dt
+         ! call get_one_energy_term(g2, g, factor_spec, energy_total, energy_sum, free_energy_kxkyz)
 
          ! Calculate dissipation perpendicular
          do is = 1, nspec

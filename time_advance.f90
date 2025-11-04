@@ -949,8 +949,9 @@ contains
          call project_out_zero(gold, gnew)
          fields_updated = .false.
       end if
+      
       gold3 = gold2
-      gold2=gold
+      gold2 = gold
       gold = gnew
 
       !> Ensure fields are updated so that omega calculation is correct.

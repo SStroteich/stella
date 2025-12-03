@@ -327,7 +327,7 @@ contains
 
    subroutine deallocate_arrays
 
-      use dist_fn_arrays, only: gnew, gold, g_gyro, gvmu, gvmu0
+      use dist_fn_arrays, only: gnew, gold, gold2, g_gyro, gvmu, gvmu0
 
       implicit none
 

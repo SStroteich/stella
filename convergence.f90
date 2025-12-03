@@ -231,7 +231,7 @@ contains
       !check for NaN in omega_window
       if (proc0 .and. any(isNan(abs(omega_window)))) then
          conv_exit = .true.
-         write(*,*) 'NaN in omega_window'
+         write (*, *) 'NaN in omega_window'
       end if
       call broadcast(conv_exit)
 

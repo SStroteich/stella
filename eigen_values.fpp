@@ -1631,7 +1631,6 @@ contains
 
          end subroutine test_eigensolver
 
-
          subroutine run_eigensolver
             use mp, only: mp_comm, proc0, nproc, barrier, iproc
             use dist_fn_arrays, only: gnew, gold
@@ -1640,9 +1639,6 @@ contains
             use stella_io, only: EigNetcdfID, init_eigenfunc_file, add_eigenpair_to_file, finish_eigenfunc_file
             use file_utils, only: run_name
             use run_parameters, only: fphi, fapar, fbpar
-
-
-
 
             use zgrid, only: nzgrid, ntubes
             use kt_grids, only: naky, nakx
@@ -1663,9 +1659,8 @@ contains
             type(EigNetcdfID) :: io_ids
             type(EpsSettings) :: my_settings
 
-
             complex, dimension(:), allocatable :: eigenvalues
-            real, dimension(:), allocatable :: local_conv   
+            real, dimension(:), allocatable :: local_conv
 
             call barrier
             !Define dimensions for problem
@@ -1686,7 +1681,6 @@ contains
             !Test the eigensolver
             PETSC_COMM_WORLD = mp_comm
             one = 1
-           
 
             !Initialise slepc
             !call SlepcInitialize(PETSC_NULL_CHARACTER, ierr)
@@ -1722,15 +1716,15 @@ contains
 
             gold = gnew
 
-            if(proc0) write(*,*) 'Real matrix created'
+            if (proc0) write (*, *) 'Real matrix created'
 
             !Create Eigenvalue problem solver
             call EPSCreate(PETSC_COMM_WORLD, my_solver, ierr)
             !Set the operator
             call EPSSetOperators(my_solver, my_real_operator, PETSC_NULL_MAT, ierr)
             !Set the options from commandline
-            call EPSSetFromOptions(my_solver, ierr) 
-            
+            call EPSSetFromOptions(my_solver, ierr)
+
             !Set the initial guess
             call EPSSetInitialSpace(my_solver, one, z, ierr)
             !Set the problem type

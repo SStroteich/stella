@@ -272,7 +272,7 @@ contains
 
    end subroutine ginit_default
 
-    subroutine ginit_linear
+   subroutine ginit_linear
 
       use constants, only: zi
       use species, only: spec

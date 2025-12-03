@@ -950,7 +950,7 @@ contains
          call project_out_zero(gold, gnew)
          fields_updated = .false.
       end if
-      
+
       gold2 = gold
       gold = gnew
 

@@ -294,7 +294,7 @@ contains
          if (.not. restart) then
             write (energy_unit, '(12a20)') '#time', 'energy', 'dedt', &
                'diss_perp', 'diss_zed', 'diss_vpa', &
-               'drive ', 'drifts', 'streaming', 'mirror',&
+               'drive ', 'drifts', 'streaming', 'mirror', &
                'nonlinearity', 'total'
          end if
       end if
@@ -494,10 +494,10 @@ contains
             phi = phi_out
             call g_to_h(gnew, phi, fphi)
             !> get_free_energy assumes the non adiabtic part h to be passed in
-            call get_free_energy(gnew, g4, phi_out, free_energy_kxkyz,dedt_kxkyz, &
-                                  diss_perp_kxkyz, diss_zed_kxkyz, diss_vpa_kxkyz, &
-                                  drive_kxkyz, drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz, &
-                                  part_flux, mom_flux, heat_flux, istep)
+            call get_free_energy(gnew, g4, phi_out, free_energy_kxkyz, dedt_kxkyz, &
+                                 diss_perp_kxkyz, diss_zed_kxkyz, diss_vpa_kxkyz, &
+                                 drive_kxkyz, drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz, &
+                                 part_flux, mom_flux, heat_flux, istep)
             call g_to_h(gnew, phi, -fphi)
             call set_vpa_weights(.False.)
          end if
@@ -640,7 +640,7 @@ contains
       term_kxkyz = 0.
       velocity_integral1 = 0.
       sum_total = 0.
-      g0=0.
+      g0 = 0.
 
       ia = 1
       do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
@@ -670,15 +670,15 @@ contains
             sum_total = sum_total + sum_spec(is)
          end do
       end if
-      g0=0.
-      
+      g0 = 0.
+
    end subroutine get_one_energy_term
 
    !> Calculate free energy, the drive term and the dissipation
    !>
    subroutine get_free_energy(h, g, phi, free_energy_kxkyz, dedt_kxkyz, diss_perp_kxkyz, diss_zed_kxkyz, diss_vpa_kxkyz, &
-                               drive_kxkyz, drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz, &
-                               part_flux, mom_flux, heat_flux, istep)
+                              drive_kxkyz, drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz, &
+                              part_flux, mom_flux, heat_flux, istep)
 
       use mp, only: proc0
       use dist_fn_arrays, only: g1, g2, g3, gvmu0, kperp2, gold2
@@ -810,7 +810,7 @@ contains
          ! Calculate numerical dissipation in the zed direction
          ! This is - code_dt * D_zed * delzed(0)**4 / 16 * dgdz * h_conj
          if (hyp_zed) then
-            
+
             g1 = 0
             call advance_hyper_zed(g, g1)
             g1 = g1 / code_dt
@@ -822,11 +822,11 @@ contains
          ! This is - code_dt * D_vpa * delvpa(0)**4 / 16 * dgvpa * h_conj
          if (hyp_vpa) then
 
-            g1 = 0           
+            g1 = 0
             call advance_hyper_vpa(g, g1)
             g1 = g1 / code_dt
             factor_spec = spec%dens * spec%temp
-            
+
             call get_one_energy_term(h, g1, factor_spec, diss_vpa, diss_vpa_sum, diss_vpa_kxkyz)
          end if
 
@@ -888,7 +888,6 @@ contains
       end if
 
    end subroutine get_free_energy
-
 
    !> Calculate fluxes
    !>

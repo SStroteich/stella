@@ -10,12 +10,13 @@ program stella
    use time_advance, only: advance_stella
    use stella_diagnostics, only: diagnose_stella, nsave, nwrite
    use stella_save, only: stella_save_for_restart
-   use dist_fn_arrays, only: gnew, gvmu
+   use dist_fn_arrays, only: gnew, gvmu, gold, gold2
    use file_utils, only: error_unit, flush_output_file
    use git_version, only: get_git_version, get_git_date
    use convergence, only: convergence_switch, testing_convergence
    use eigen_values, only: eigval_functional, run_eigensolver, test_eigensolver
    use mp, only: proc0
+   use redistribute, only: report_map_property
 
    implicit none
 
@@ -34,6 +35,10 @@ program stella
 
    !> Initialize stella
    call init_stella(istep0, get_git_version(), get_git_date())
+   !> Report properties of the mapping used for redistribution
+   !call report_map_property(kxkyz2vmu)
+   gold2 = gold
+
    if (eigenvalue_option) then
       !call test_eigensolver
       call run_eigensolver

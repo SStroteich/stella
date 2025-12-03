@@ -844,7 +844,7 @@ contains
 
    subroutine advance_stella(istep, stop_stella)
 
-      use dist_fn_arrays, only: gold, gnew
+      use dist_fn_arrays, only: gold, gnew, gold2
       use fields_arrays, only: phi, apar
       use fields_arrays, only: phi_old
       use fields, only: advance_fields, fields_updated
@@ -950,7 +950,8 @@ contains
          call project_out_zero(gold, gnew)
          fields_updated = .false.
       end if
-
+      
+      gold2 = gold
       gold = gnew
 
       !> Ensure fields are updated so that omega calculation is correct.

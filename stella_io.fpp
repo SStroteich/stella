@@ -586,7 +586,7 @@ contains
 # endif
    end subroutine nc_volume
 
-   subroutine write_energy_kxkyz_nc(nout, free_energy_kxkyz, drive_kxkyz, &
+   subroutine write_energy_kxkyz_nc(nout, free_energy_kxkyz, dedt_kxkyz, drive_kxkyz, &
                                     diss_perp_kxkyz, diss_zed_kxkyz, diss_vpa_kxkyz, &
                                     drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz)
 # ifdef NETCDF
@@ -595,7 +595,7 @@ contains
       implicit none
       !> Current timestep
       integer, intent(in) :: nout
-      real, dimension(:, :, :, :, :), intent(in) :: free_energy_kxkyz, drive_kxkyz
+      real, dimension(:, :, :, :, :), intent(in) :: free_energy_kxkyz, dedt_kxkyz, drive_kxkyz
       real, dimension(:, :, :, :, :), intent(in) :: diss_perp_kxkyz, diss_zed_kxkyz, diss_vpa_kxkyz
       real, dimension(:, :, :, :, :), intent(in) :: drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz
 
@@ -604,6 +604,10 @@ contains
                         dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
                         start=[1, 1, 1, 1, 1, nout], &
                         long_name="Free energy")
+      call neasyf_write(ncid, "dedt_kxkyz", dedt_kxkyz, &
+                        dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
+                        start=[1, 1, 1, 1, 1, nout], &
+                        long_name="Time derivative of free energy")
       call neasyf_write(ncid, "drive_kxkyz", drive_kxkyz, &
                         dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
                         start=[1, 1, 1, 1, 1, nout], &

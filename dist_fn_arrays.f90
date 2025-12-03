@@ -16,7 +16,7 @@ module dist_fn_arrays
    public :: wdriftpx_phi, wdriftpy_phi
 
    ! dist fn
-   complex, dimension(:, :, :, :, :), allocatable :: gnew, gold, g_gyro
+   complex, dimension(:, :, :, :, :), allocatable :: gnew, gold, g_gyro, gold2
    ! (naky, nakx, -nzgrid:nzgrid, ntubes, -vmu-layout-)
 
    complex, dimension(:, :, :, :, :), target, allocatable :: g_symm

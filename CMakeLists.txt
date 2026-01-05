@@ -82,6 +82,7 @@ set(STELLA_SOURCES_f90
   physics_parameters.f90
   run_parameters.f90
   species.f90
+  energy_diagnostic.f90
   stella_diagnostics.f90
   stella_layouts.f90
   stella_time.f90

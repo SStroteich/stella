@@ -24,6 +24,7 @@ module stella_io
    public :: write_radial_moments_nc
    public :: write_fluxes_kxkyz_nc
    public :: write_energy_kxkyz_nc
+   public :: write_energy_vmu_nc
    public :: nc_volume
 
    public :: get_nout
@@ -586,62 +587,112 @@ contains
 # endif
    end subroutine nc_volume
 
-   subroutine write_energy_kxkyz_nc(nout, free_energy_kxkyz, dedt_kxkyz, drive_kxkyz, &
-                                    diss_perp_kxkyz, diss_zed_kxkyz, diss_vpa_kxkyz, &
-                                    drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz)
+   subroutine write_energy_kxkyz_nc(nout)
 # ifdef NETCDF
       use neasyf, only: neasyf_write
 # endif
+      use energy_diagnostic, only: energy_diagnostics_type, energy_diag
       implicit none
       !> Current timestep
       integer, intent(in) :: nout
-      real, dimension(:, :, :, :, :), intent(in) :: free_energy_kxkyz, dedt_kxkyz, drive_kxkyz
-      real, dimension(:, :, :, :, :), intent(in) :: diss_perp_kxkyz, diss_zed_kxkyz, diss_vpa_kxkyz
-      real, dimension(:, :, :, :, :), intent(in) :: drifts_kxkyz, streaming_kxkyz, nonlinear_kxkyz, mirror_kxkyz
 
 # ifdef NETCDF
-      call neasyf_write(ncid, "free_energy_kxkyz", free_energy_kxkyz, &
+      call neasyf_write(ncid, "free_energy_kxkyz", energy_diag%free_energy_kxkyz, &
                         dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
                         start=[1, 1, 1, 1, 1, nout], &
                         long_name="Free energy")
-      call neasyf_write(ncid, "dedt_kxkyz", dedt_kxkyz, &
+      call neasyf_write(ncid, "dedt_kxkyz", energy_diag%dedt_kxkyz, &
                         dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
                         start=[1, 1, 1, 1, 1, nout], &
                         long_name="Time derivative of free energy")
-      call neasyf_write(ncid, "drive_kxkyz", drive_kxkyz, &
+      call neasyf_write(ncid, "drive_kxkyz", energy_diag%drive_kxkyz, &
                         dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
                         start=[1, 1, 1, 1, 1, nout], &
                         long_name="Drive term")
-      call neasyf_write(ncid, "diss_perp_kxkyz", diss_perp_kxkyz, &
+      call neasyf_write(ncid, "diss_perp_kxkyz", energy_diag%diss_perp_kxkyz, &
                         dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
                         start=[1, 1, 1, 1, 1, nout], &
                         long_name="Perpendicular Dissipation term")
-      call neasyf_write(ncid, "diss_zed_kxkyz", diss_zed_kxkyz, &
+      call neasyf_write(ncid, "diss_zed_kxkyz", energy_diag%diss_zed_kxkyz, &
                         dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
                         start=[1, 1, 1, 1, 1, nout], &
                         long_name="Dissipation term in z-direction")
-      call neasyf_write(ncid, "diss_vpa_kxkyz", diss_vpa_kxkyz, &
+      call neasyf_write(ncid, "diss_vpa_kxkyz", energy_diag%diss_vpa_kxkyz, &
                         dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
                         start=[1, 1, 1, 1, 1, nout], &
                         long_name="Dissipation term in vpa-direction")
-      call neasyf_write(ncid, 'drifts_kxkyz', drifts_kxkyz, &
+      call neasyf_write(ncid, 'drifts_kxkyz', energy_diag%drifts_kxkyz, &
                         dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
                         start=[1, 1, 1, 1, 1, nout], &
                         long_name="Drift term")
-      call neasyf_write(ncid, 'streaming_kxkyz', streaming_kxkyz, &
+      call neasyf_write(ncid, 'streaming_kxkyz', energy_diag%streaming_kxkyz, &
                         dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
                         start=[1, 1, 1, 1, 1, nout], &
                         long_name="Streaming term")
-      call neasyf_write(ncid, 'nonlinear_kxkyz', nonlinear_kxkyz, &
+      call neasyf_write(ncid, 'nonlinear_kxkyz', energy_diag%nonlinear_kxkyz, &
                         dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
                         start=[1, 1, 1, 1, 1, nout], &
                         long_name="Nonlinear term")
-      call neasyf_write(ncid, 'mirror_kxkyz', mirror_kxkyz, &
+      call neasyf_write(ncid, 'mirror_kxkyz', energy_diag%mirror_kxkyz, &
                         dim_names=[character(len=7)::"ky", "kx", "zed", "tube", "species", "t"], &
                         start=[1, 1, 1, 1, 1, nout], &
                         long_name="Mirror term")
 # endif
    end subroutine write_energy_kxkyz_nc
+
+   subroutine write_energy_vmu_nc(nout)
+# ifdef NETCDF
+      use neasyf, only: neasyf_write
+# endif
+      use energy_diagnostic, only: energy_diagnostics_type, energy_diag
+
+      implicit none
+      !> Current timestep
+      integer, intent(in) :: nout
+
+# ifdef NETCDF
+      call neasyf_write(ncid, "free_energy_vmu", energy_diag%free_energy_vmu, &
+                        dim_names=[character(len=7)::"vpa", "mu", "species", "t"], &
+                        start=[1, 1, 1, nout], &
+                        long_name="Free energy averaged over real space")
+      call neasyf_write(ncid, "dedt_vmu", energy_diag%dedt_vmu, &
+                        dim_names=[character(len=7)::"vpa", "mu", "species", "t"], &
+                        start=[1, 1, 1, nout], &
+                        long_name="Time derivative of free energy averaged over real space")
+      call neasyf_write(ncid, "drive_vmu", energy_diag%drive_vmu, &
+                        dim_names=[character(len=7)::"vpa", "mu", "species", "t"], &
+                        start=[1, 1, 1, nout], &
+                        long_name="Drive term averaged over real space")
+      call neasyf_write(ncid, "diss_perp_vmu", energy_diag%diss_perp_vmu, &
+                        dim_names=[character(len=7)::"vpa", "mu", "species", "t"], &
+                        start=[1, 1, 1, nout], &
+                        long_name="Perpendicular Dissipation term averaged over real space")
+      call neasyf_write(ncid, "diss_zed_vmu", energy_diag%diss_zed_vmu, &
+                        dim_names=[character(len=7)::"vpa", "mu", "species", "t"], &
+                        start=[1, 1, 1, nout], &
+                        long_name="Dissipation term in z-direction averaged over real space")
+      call neasyf_write(ncid, "diss_vpa_vmu", energy_diag%diss_vpa_vmu, &
+                        dim_names=[character(len=7)::"vpa", "mu", "species", "t"], &
+                        start=[1, 1, 1, nout], &
+                        long_name="Dissipation term in vpa-direction averaged over real space")
+      call neasyf_write(ncid, 'drifts_vmu', energy_diag%drifts_vmu, &
+                        dim_names=[character(len=7)::"vpa", "mu", "species", "t"], &
+                        start=[1, 1, 1, nout], &
+                        long_name="Drift term averaged over real space")
+      call neasyf_write(ncid, 'streaming_vmu', energy_diag%streaming_vmu, &
+                        dim_names=[character(len=7)::"vpa", "mu", "species", "t"], &
+                        start=[1, 1, 1, nout], &
+                        long_name="Streaming term averaged over real space")
+      call neasyf_write(ncid, 'nonlinear_vmu', energy_diag%nonlinear_vmu, &
+                        dim_names=[character(len=7)::"vpa", "mu", "species", "t"], &
+                        start=[1, 1, 1, nout], &
+                        long_name="Nonlinear term averaged over real space")
+      call neasyf_write(ncid, 'mirror_vmu', energy_diag%mirror_vmu, &
+                        dim_names=[character(len=7)::"vpa", "mu", "species", "t"], &
+                        start=[1, 1, 1, nout], &
+                        long_name="Mirror term averaged over real space")
+# endif
+   end subroutine write_energy_vmu_nc
 
    subroutine write_moments_nc(nout, density, upar, temperature, spitzer2)
       implicit none

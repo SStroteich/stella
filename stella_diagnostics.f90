@@ -1,15 +1,12 @@
 !> Routines for calculating and writing various physical diagnostics
 module stella_diagnostics
 
-   
-
    implicit none
 
    public :: init_stella_diagnostics, finish_stella_diagnostics
    public :: diagnose_stella, read_stella_diagnostics_knobs
    public :: write_radial_fluxes, write_radial_moments
    public :: nsave, nwrite
-
 
    private
 
@@ -135,7 +132,6 @@ contains
       call init_init_g
       call init_dist_fn
       call init_convergence
-      
 
       !> Allocate the necessary arrays
       call allocate_arrays
@@ -197,7 +193,6 @@ contains
          write_energy_vmu = .false.
          flux_norm = .true.
          nc_mult = 1
-         
 
          in_file = input_unit_exist("stella_diagnostics_knobs", exist)
          if (exist) read (unit=in_file, nml=stella_diagnostics_knobs)
@@ -435,7 +430,6 @@ contains
       allocate (vflx_kxkyz(naky, nakx, nztot, ntubes, nspec))
       allocate (qflx_kxkyz(naky, nakx, nztot, ntubes, nspec))
 
-
       if (write_radial_fluxes) then
          allocate (part_flux_x(nakx, nspec))
          allocate (mom_flux_x(nakx, nspec))
@@ -497,7 +491,7 @@ contains
             phi = phi_out
             call g_to_h(gnew, phi, fphi)
             !> get_free_energy assumes the non adiabtic part h to be passed in
-            call get_free_energy(gnew, g4, phi_out, istep,energy_unit)
+            call get_free_energy(gnew, g4, phi_out, istep, energy_unit)
             call g_to_h(gnew, phi, -fphi)
             call set_vpa_weights(.False.)
          end if

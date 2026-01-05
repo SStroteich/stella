@@ -5,7 +5,7 @@ module energy_diagnostic
 
    public :: energy_diagnostics_type, energy_diag
    public :: init_energy_diagnostic, finish_energy_diagnostic
-    public :: get_free_energy
+   public :: get_free_energy
 
    type :: energy_diagnostics_type
       real, dimension(:), allocatable :: energy_total, dedt_total
@@ -218,7 +218,7 @@ contains
 
 !> Calculate free energy, the drive term and the dissipation
    !>
-   subroutine get_free_energy(h, g, phi, istep,energy_unit)
+   subroutine get_free_energy(h, g, phi, istep, energy_unit)
 
       use mp, only: proc0
       use dist_fn_arrays, only: g1, g2, g3, gvmu0, kperp2, gold2
@@ -311,10 +311,10 @@ contains
 
          energy_diag%factor_spec = spec%dens * spec%temp
          call get_one_energy_term_kxkyz(h, g, energy_diag%factor_spec, energy_diag%energy_total, energy_sum, energy_diag%free_energy_kxkyz)
-         
+
          ! ToDo
          ! calculate the dependece of free energy on velocity space
-         ! call_get_one_energy_term_velocity_space(h, g, factor_spec, free_energy_vs_vpa_mu) 
+         ! call_get_one_energy_term_velocity_space(h, g, factor_spec, free_energy_vs_vpa_mu)
 
          ! Calculate dE/dt
          ! This is (g - g_old) / dt * h_conj
@@ -458,7 +458,6 @@ contains
       if (allocated(energy_diag%nonlinear_vmu)) deallocate (energy_diag%nonlinear_vmu)
       if (allocated(energy_diag%mirror_vmu)) deallocate (energy_diag%mirror_vmu)
       if (allocated(energy_diag%velocity_integral1)) deallocate (energy_diag%velocity_integral1)
-
 
    end subroutine finish_energy_diagnostic
 

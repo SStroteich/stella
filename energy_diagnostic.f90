@@ -13,7 +13,10 @@ module energy_diagnostic
       real, dimension(:), allocatable :: drifts_term, streaming_term, nonlinear_term, mirror_term
       real, dimension(:), allocatable :: weights_energy, factor_spec
 
+      real, dimension(:), allocatable :: energy_total_vmu
+
       complex, dimension(:, :, :, :, :), allocatable :: velocity_integral1
+      complex, dimension(:, :, :), allocatable :: spatial_integral1
 
       real, dimension(:, :, :, :, :), allocatable :: free_energy_kxkyz, dedt_kxkyz
       real, dimension(:, :, :, :, :), allocatable :: diss_perp_kxkyz, diss_zed_kxkyz, diss_vpa_kxkyz
@@ -55,9 +58,16 @@ contains
 
       if (.not. allocated(energy_diag%weights_energy)) allocate (energy_diag%weights_energy(nspec)); energy_diag%weights_energy = 1.
       if (.not. allocated(energy_diag%factor_spec)) allocate (energy_diag%factor_spec(nspec)); energy_diag%factor_spec = 0.
+
+      if (.not. allocated(energy_diag%energy_total_vmu)) allocate (energy_diag%energy_total_vmu(nspec)); energy_diag%energy_total_vmu = 0.
+
       if (.not. allocated(energy_diag%velocity_integral1)) then
          allocate (energy_diag%velocity_integral1(naky, nakx, -nzgrid:nzgrid, ntubes, nspec))
          energy_diag%velocity_integral1 = 0.
+      end if
+      if (.not. allocated(energy_diag%spatial_integral1)) then
+         allocate (energy_diag%spatial_integral1(nvpa, nmu, nspec))
+         energy_diag%spatial_integral1 = 0.
       end if
 
       if (write_energy_kxkyz) then
@@ -91,13 +101,16 @@ contains
    !the subroutine takes input values of g, phi, factor_spec and returns sum_spec, sum_total and the array term_kxkyz
    !
    subroutine get_one_energy_term_kxkyz(h, term, factor_spec, sum_spec, sum_total, term_kxkyz)
-      use mp, only: proc0
+      use mp, only: proc0,sum_allreduce
+
       use dist_fn_arrays, only: g0
       use stella_layouts, only: vmu_lo
       use stella_layouts, only: iv_idx, imu_idx, is_idx
       use species, only: nspec
       use zgrid, only: nzgrid, ntubes
       use vpamu_grids, only: maxwell_vpa, maxwell_mu, maxwell_fac
+      use vpamu_grids, only: wgts_mu, wgts_vpa
+
       use vpamu_grids, only: integrate_vmu
       use volume_averages, only: mode_fac
       use kt_grids, only: naky, nakx
@@ -112,7 +125,7 @@ contains
       real, intent(out) :: sum_total
       real, dimension(:, :, -nzgrid:, :, :), intent(out) :: term_kxkyz
 
-      integer :: ivmu, imu, iv, iz, it, is, ia, ikx
+      integer :: ivmu, imu, iv, iz, it, is, ia, ikx, iky
 
       energy_diag%weights_energy = 1.
       sum_spec = 0.
@@ -126,22 +139,25 @@ contains
          iv = iv_idx(vmu_lo, ivmu)
          imu = imu_idx(vmu_lo, ivmu)
          is = is_idx(vmu_lo, ivmu)
-         do it = 1, ntubes
-            do iz = -nzgrid, nzgrid
-               g0(:, :, iz, it, ivmu) = term(:, :, iz, it, ivmu) * conjg(h(:, :, iz, it, ivmu)) &
-                                        / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is))
-            end do
-         end do
+         do iz = -nzgrid, nzgrid
+            g0(:, :, iz, :, ivmu) = term(:, :, iz, :, ivmu) * conjg(h(:, :, iz, :, ivmu)) &
+                                       / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is))
+            energy_diag%velocity_integral1(:, :, iz, :, is) = energy_diag%velocity_integral1(:, :, iz, :, is) + &
+                                     wgts_mu(ia, iz, imu) * wgts_vpa(iv) * g0(:, :, iz, :, ivmu) * energy_diag%weights_energy(is)                                       
+         end do         
       end do
-      call integrate_vmu(g0, energy_diag%weights_energy, energy_diag%velocity_integral1)
-      !TODO parallelize the following loop
+
+      call sum_allreduce(energy_diag%velocity_integral1)
+   
       if (proc0) then
          do is = 1, nspec
             do it = 1, ntubes
                do iz = -nzgrid, nzgrid
                   do ikx = 1, nakx
-                     term_kxkyz(:, ikx, iz, it, is) = 0.5 * mode_fac(:) * (real(factor_spec(is) * energy_diag%velocity_integral1(:, ikx, iz, it, is)))
-                     sum_spec(is) = sum_spec(is) + sum(term_kxkyz(:, ikx, iz, it, is) * dVolume(ia, 1, iz))
+                     do iky = 1, naky
+                        term_kxkyz(iky, ikx, iz, it, is) = 0.5 * mode_fac(iky) * (real(factor_spec(is) * energy_diag%velocity_integral1(iky, ikx, iz, it, is)))
+                        sum_spec(is) = sum_spec(is) + term_kxkyz(iky, ikx, iz, it, is) * dVolume(ia, ikx, iz)
+                     end do
                   end do
                end do
             end do
@@ -151,21 +167,28 @@ contains
       end if
       g0 = 0.
 
+
+
    end subroutine get_one_energy_term_kxkyz
 
    subroutine get_one_energy_term_vmu(h, term, factor_spec, sum_spec, sum_total, term_vmu)
-      use mp, only: proc0
-      use dist_fn_arrays, only: g0
+      use mp, only: proc0, sum_allreduce
+      use dist_fn_arrays, only: g0, gvmu0
+      use stella_layouts, only: kxkyz_lo
+      use stella_layouts, only: is_idx, ikx_idx, iky_idx, iz_idx, it_idx
       use stella_layouts, only: vmu_lo
       use stella_layouts, only: iv_idx, imu_idx, is_idx
       use species, only: nspec
-      use zgrid, only: nzgrid, ntubes
+      use zgrid, only: ntubes, nzgrid
       use vpamu_grids, only: maxwell_vpa, maxwell_mu, maxwell_fac
-      use vpamu_grids, only: integrate_vmu
+      use vpamu_grids, only: nvpa, nmu
+      use vpamu_grids, only: wgts_mu, wgts_vpa
       use volume_averages, only: mode_fac
-      use kt_grids, only: naky, nakx
       use stella_geometry, only: dVolume
       use volume_averages, only: volume_total
+ 
+      use redistribute, only: gather, scatter
+      use dist_redistribute, only: kxkyz2vmu
 
       implicit none
       complex, dimension(:, :, -nzgrid:, :, vmu_lo%llim_proc:), intent(in) :: h, term
@@ -173,55 +196,77 @@ contains
       real, dimension(nspec), intent(in) :: factor_spec
       real, dimension(nspec), intent(out) :: sum_spec
       real, intent(out) :: sum_total
-      real, dimension(:, :, -nzgrid:, :, :), intent(out) :: term_vmu
+      real, dimension(:, :, :), intent(out) :: term_vmu
 
-      integer :: ivmu, imu, iv, iz, it, is, ia, ikx
+      integer :: ivmu, imu, iv, is
+      integer :: ikxkyz, iz, it, ia, ikx, iky
+      
 
       energy_diag%weights_energy = 1.
       sum_spec = 0.
       term_vmu = 0.
-      energy_diag%velocity_integral1 = 0.
       sum_total = 0.
+      energy_diag%spatial_integral1 = 0.
       g0 = 0.
 
       ia = 1
+
       do ivmu = vmu_lo%llim_proc, vmu_lo%ulim_proc
          iv = iv_idx(vmu_lo, ivmu)
          imu = imu_idx(vmu_lo, ivmu)
          is = is_idx(vmu_lo, ivmu)
          do it = 1, ntubes
             do iz = -nzgrid, nzgrid
-               g0(:, :, iz, it, ivmu) = term(:, :, iz, it, ivmu) * conjg(h(:, :, iz, it, ivmu)) &
-                                        / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is))
+               g0(:, :, iz, it, ivmu) = term(:, :, iz, it, ivmu) * conjg(h(:, :, iz, it, ivmu))                                        
             end do
          end do
       end do
-      call integrate_vmu(g0, energy_diag%weights_energy, energy_diag%velocity_integral1)
-      !TODO parallelize the following loop
+
+      call scatter(kxkyz2vmu, g0, gvmu0)
+
+      
+      do ikxkyz = kxkyz_lo%llim_proc, kxkyz_lo%ulim_proc
+         is = is_idx(kxkyz_lo, ikxkyz)
+         ikx = ikx_idx(kxkyz_lo, ikxkyz)
+         iky = iky_idx(kxkyz_lo, ikxkyz)
+         iz = iz_idx(kxkyz_lo, ikxkyz)
+         it = it_idx(kxkyz_lo, ikxkyz)
+         do imu = 1, nmu
+            do iv = 1, nvpa    
+               energy_diag%spatial_integral1(iv, imu, is) = energy_diag%spatial_integral1(iv, imu, is) + 0.5 * mode_fac(iky) * &
+                     factor_spec(is) * gvmu0(iv, imu, ikxkyz) * dVolume(ia, ikx, iz) / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is))
+            end do
+         end do
+      end do
+
+      energy_diag%spatial_integral1 = energy_diag%spatial_integral1/volume_total
+      call sum_allreduce(energy_diag%spatial_integral1)
+
       if (proc0) then
          do is = 1, nspec
-            do it = 1, ntubes
-               do iz = -nzgrid, nzgrid
-                  do ikx = 1, nakx
-                     term_vmu(:, ikx, iz, it, is) = 0.5 * mode_fac(:) * (real(factor_spec(is) * energy_diag%velocity_integral1(:, ikx, iz, it, is)))
-                     sum_spec(is) = sum_spec(is) + sum(term_vmu(:, ikx, iz, it, is) * dVolume(ia, 1, iz))
-                  end do
+            do imu = 1, nmu
+               do iv = 1, nvpa
+                  term_vmu(iv, imu, is) = real(energy_diag%spatial_integral1(iv, imu, is))
+                  sum_spec(is) = sum_spec(is) + wgts_mu(ia, iz, imu) * wgts_vpa(iv) * term_vmu(iv, imu, is) * energy_diag%weights_energy(is)
                end do
             end do
-            sum_spec(is) = sum_spec(is) / volume_total
             sum_total = sum_total + sum_spec(is)
          end do
       end if
+      
       g0 = 0.
-
+      gvmu0 = 0.
+      ! TODO
+      ! what is the difference between dl_over_b and dVolume?
+      ! how to integrate correctly over volume here?
    end subroutine get_one_energy_term_vmu
 
 !> Calculate free energy, the drive term and the dissipation
    !>
-   subroutine get_free_energy(h, g, phi, istep, energy_unit)
+   subroutine get_free_energy(h, g, phi, istep, energy_unit,write_energy_vmu)
 
       use mp, only: proc0
-      use dist_fn_arrays, only: g1, g2, g3, gvmu0, kperp2, gold2
+      use dist_fn_arrays, only: g1, kperp2, gold2
       use fields_arrays, only: phi_zero
       use stella_layouts, only: vmu_lo
       use stella_layouts, only: iv_idx, imu_idx, is_idx
@@ -250,9 +295,10 @@ contains
 
       integer, intent(in) :: istep
       integer, intent(in) :: energy_unit
+      logical, intent(in) :: write_energy_vmu
 
       integer :: ivmu, imu, iv, iz, it, is, ia, ikx, iky, ikxkyz
-      real :: energy_sum
+      real :: energy_sum, energy_sum_vmu
       real :: dedt_sum
 
       real :: diss_perp_sum
@@ -281,6 +327,7 @@ contains
       energy_diag%nonlinear_kxkyz = 0.
 
       energy_sum = 0.
+      energy_sum_vmu = 0.
       dedt_sum = 0.
 
       diss_perp_sum = 0.
@@ -299,19 +346,32 @@ contains
 
       phi_zero = 0.
       g1 = 0.
-      g2 = 0.
-      g3 = 0
 
       ! FLAG - electrostatic for now
       ! get electrostatic contributions to energy terms
       if (fphi > epsilon(0.0)) then
-
+         if (proc0) then
+            write(*,*) 'Free energy from kxkyz: ', energy_sum
+            if (write_energy_vmu) then
+               write(*,*) 'Free energy from vmu: ', energy_sum_vmu
+            end if
+         end if
          ! Calculate free energy
          ! This is g * h_conj
 
          energy_diag%factor_spec = spec%dens * spec%temp
          call get_one_energy_term_kxkyz(h, g, energy_diag%factor_spec, energy_diag%energy_total, energy_sum, energy_diag%free_energy_kxkyz)
-
+         
+         if (write_energy_vmu) then
+            call get_one_energy_term_vmu(h, g, energy_diag%factor_spec, energy_diag%energy_total_vmu, energy_sum_vmu, energy_diag%free_energy_vmu)
+         end if
+         if (proc0) then
+            write(*,*) 'Free energy from kxkyz: ', energy_sum
+            if (write_energy_vmu) then
+               write(*,*) 'Free energy from vmu: ', energy_sum_vmu
+               write(*,*) 'Check: ratio = ', energy_sum / energy_sum_vmu
+            end if
+         end if
          ! ToDo
          ! calculate the dependece of free energy on velocity space
          ! call_get_one_energy_term_velocity_space(h, g, factor_spec, free_energy_vs_vpa_mu)
@@ -446,6 +506,8 @@ contains
       if (allocated(energy_diag%streaming_kxkyz)) deallocate (energy_diag%streaming_kxkyz)
       if (allocated(energy_diag%nonlinear_kxkyz)) deallocate (energy_diag%nonlinear_kxkyz)
       if (allocated(energy_diag%mirror_kxkyz)) deallocate (energy_diag%mirror_kxkyz)
+
+      if (allocated(energy_diag%energy_total_vmu)) deallocate (energy_diag%energy_total_vmu)
 
       if (allocated(energy_diag%free_energy_vmu)) deallocate (energy_diag%free_energy_vmu)
       if (allocated(energy_diag%dedt_vmu)) deallocate (energy_diag%dedt_vmu)

@@ -101,7 +101,7 @@ contains
    !the subroutine takes input values of g, phi, factor_spec and returns sum_spec, sum_total and the array term_kxkyz
    !
    subroutine get_one_energy_term_kxkyz(h, term, factor_spec, sum_spec, sum_total, term_kxkyz)
-      use mp, only: proc0,sum_allreduce
+      use mp, only: proc0, sum_allreduce
 
       use dist_fn_arrays, only: g0
       use stella_layouts, only: vmu_lo
@@ -141,21 +141,21 @@ contains
          is = is_idx(vmu_lo, ivmu)
          do iz = -nzgrid, nzgrid
             g0(:, :, iz, :, ivmu) = term(:, :, iz, :, ivmu) * conjg(h(:, :, iz, :, ivmu)) &
-                                       / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is))
+                                    / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is))
             energy_diag%velocity_integral1(:, :, iz, :, is) = energy_diag%velocity_integral1(:, :, iz, :, is) + &
-                                     wgts_mu(ia, iz, imu) * wgts_vpa(iv) * g0(:, :, iz, :, ivmu) * energy_diag%weights_energy(is)                                       
-         end do         
+                                                          wgts_mu(ia, iz, imu) * wgts_vpa(iv) * g0(:, :, iz, :, ivmu) * energy_diag%weights_energy(is)
+         end do
       end do
 
       call sum_allreduce(energy_diag%velocity_integral1)
-   
+
       if (proc0) then
          do is = 1, nspec
             do it = 1, ntubes
                do iz = -nzgrid, nzgrid
                   do ikx = 1, nakx
                      do iky = 1, naky
-                        term_kxkyz(iky, ikx, iz, it, is) = 0.5 * mode_fac(iky) * (real(factor_spec(is) * energy_diag%velocity_integral1(iky, ikx, iz, it, is)))
+               term_kxkyz(iky, ikx, iz, it, is) = 0.5 * mode_fac(iky) * (real(factor_spec(is) * energy_diag%velocity_integral1(iky, ikx, iz, it, is)))
                         sum_spec(is) = sum_spec(is) + term_kxkyz(iky, ikx, iz, it, is) * dVolume(ia, ikx, iz)
                      end do
                   end do
@@ -166,8 +166,6 @@ contains
          end do
       end if
       g0 = 0.
-
-
 
    end subroutine get_one_energy_term_kxkyz
 
@@ -186,7 +184,7 @@ contains
       use volume_averages, only: mode_fac
       use stella_geometry, only: dVolume
       use volume_averages, only: volume_total
- 
+
       use redistribute, only: gather, scatter
       use dist_redistribute, only: kxkyz2vmu
 
@@ -200,7 +198,6 @@ contains
 
       integer :: ivmu, imu, iv, is
       integer :: ikxkyz, iz, it, ia, ikx, iky
-      
 
       energy_diag%weights_energy = 1.
       sum_spec = 0.
@@ -217,14 +214,13 @@ contains
          is = is_idx(vmu_lo, ivmu)
          do it = 1, ntubes
             do iz = -nzgrid, nzgrid
-               g0(:, :, iz, it, ivmu) = term(:, :, iz, it, ivmu) * conjg(h(:, :, iz, it, ivmu))                                        
+               g0(:, :, iz, it, ivmu) = term(:, :, iz, it, ivmu) * conjg(h(:, :, iz, it, ivmu))
             end do
          end do
       end do
 
       call scatter(kxkyz2vmu, g0, gvmu0)
 
-      
       do ikxkyz = kxkyz_lo%llim_proc, kxkyz_lo%ulim_proc
          is = is_idx(kxkyz_lo, ikxkyz)
          ikx = ikx_idx(kxkyz_lo, ikxkyz)
@@ -232,14 +228,14 @@ contains
          iz = iz_idx(kxkyz_lo, ikxkyz)
          it = it_idx(kxkyz_lo, ikxkyz)
          do imu = 1, nmu
-            do iv = 1, nvpa    
+            do iv = 1, nvpa
                energy_diag%spatial_integral1(iv, imu, is) = energy_diag%spatial_integral1(iv, imu, is) + 0.5 * mode_fac(iky) * &
-                     factor_spec(is) * gvmu0(iv, imu, ikxkyz) * dVolume(ia, ikx, iz) / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is))
+               factor_spec(is) * gvmu0(iv, imu, ikxkyz) * dVolume(ia, ikx, iz) / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is))
             end do
          end do
       end do
 
-      energy_diag%spatial_integral1 = energy_diag%spatial_integral1/volume_total
+      energy_diag%spatial_integral1 = energy_diag%spatial_integral1 / volume_total
       call sum_allreduce(energy_diag%spatial_integral1)
 
       if (proc0) then
@@ -253,7 +249,7 @@ contains
             sum_total = sum_total + sum_spec(is)
          end do
       end if
-      
+
       g0 = 0.
       gvmu0 = 0.
       ! TODO
@@ -263,7 +259,7 @@ contains
 
 !> Calculate free energy, the drive term and the dissipation
    !>
-   subroutine get_free_energy(h, g, phi, istep, energy_unit,write_energy_vmu)
+   subroutine get_free_energy(h, g, phi, istep, energy_unit, write_energy_vmu)
 
       use mp, only: proc0
       use dist_fn_arrays, only: g1, kperp2, gold2
@@ -351,9 +347,9 @@ contains
       ! get electrostatic contributions to energy terms
       if (fphi > epsilon(0.0)) then
          if (proc0) then
-            write(*,*) 'Free energy from kxkyz: ', energy_sum
+            write (*, *) 'Free energy from kxkyz: ', energy_sum
             if (write_energy_vmu) then
-               write(*,*) 'Free energy from vmu: ', energy_sum_vmu
+               write (*, *) 'Free energy from vmu: ', energy_sum_vmu
             end if
          end if
          ! Calculate free energy
@@ -361,15 +357,15 @@ contains
 
          energy_diag%factor_spec = spec%dens * spec%temp
          call get_one_energy_term_kxkyz(h, g, energy_diag%factor_spec, energy_diag%energy_total, energy_sum, energy_diag%free_energy_kxkyz)
-         
+
          if (write_energy_vmu) then
             call get_one_energy_term_vmu(h, g, energy_diag%factor_spec, energy_diag%energy_total_vmu, energy_sum_vmu, energy_diag%free_energy_vmu)
          end if
          if (proc0) then
-            write(*,*) 'Free energy from kxkyz: ', energy_sum
+            write (*, *) 'Free energy from kxkyz: ', energy_sum
             if (write_energy_vmu) then
-               write(*,*) 'Free energy from vmu: ', energy_sum_vmu
-               write(*,*) 'Check: ratio = ', energy_sum / energy_sum_vmu
+               write (*, *) 'Free energy from vmu: ', energy_sum_vmu
+               write (*, *) 'Check: ratio = ', energy_sum / energy_sum_vmu
             end if
          end if
          ! ToDo

@@ -318,7 +318,7 @@ contains
          it = it_idx(kxkyz_lo, ikxkyz)
          do imu = 1, nmu
             do iv = 1, nvpa
-               energy_diag%spatial_integral1(iv, imu, is) = energy_diag%spatial_integral1(iv, imu, is) + 0.5 * mode_fac(iky) * bmag(ia, iz) * &
+               energy_diag%spatial_integral1(iv, imu, is) = energy_diag%spatial_integral1(iv, imu, is) + mode_fac(iky) * bmag(ia, iz) * &
                factor_spec(is) * gvmu0(iv, imu, ikxkyz) * dVolume(ia, ikx, iz) / (maxwell_fac(is) * maxwell_vpa(iv, is) * maxwell_mu(ia, iz, imu, is))
             end do
          end do
@@ -332,7 +332,7 @@ contains
             do imu = 1, nmu
                do iv = 1, nvpa
                   term_vmu(iv, imu, is) = real(energy_diag%spatial_integral1(iv, imu, is))
-                  sum_spec(is) = sum_spec(is) + 2 * wgts_mu_bare(imu) * wgts_vpa(iv) * term_vmu(iv, imu, is) * energy_diag%weights_energy(is)
+                  sum_spec(is) = sum_spec(is) + wgts_mu_bare(imu) * wgts_vpa(iv) * term_vmu(iv, imu, is) * energy_diag%weights_energy(is)
                end do
             end do
             sum_total = sum_total + sum_spec(is)

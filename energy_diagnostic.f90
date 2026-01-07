@@ -281,7 +281,9 @@ contains
       implicit none
       complex, dimension(:, :, -nzgrid:, :, vmu_lo%llim_proc:), intent(in) :: h, term
 
+      real, dimension(nspec), intent(out) :: sum_spec
       real, dimension(nspec), intent(in) :: factor_spec
+      real, intent(out) :: sum_total
 
       real, dimension(:, :, :), intent(out) :: term_vmu
 
@@ -290,9 +292,9 @@ contains
       
 
       energy_diag%weights_energy = 1.
-
+      sum_spec = 0.
       term_vmu = 0.
-
+      sum_total = 0.
       energy_diag%spatial_integral1 = 0.
       g0 = 0.
 

@@ -491,7 +491,7 @@ contains
             phi = phi_out
             call g_to_h(gnew, phi, fphi)
             !> get_free_energy assumes the non adiabtic part h to be passed in
-            call get_free_energy(gnew, g4, phi_out, istep, energy_unit,write_energy_vmu)
+            call get_free_energy(gnew, g4, phi_out, istep, energy_unit, write_energy_vmu)
             call g_to_h(gnew, phi, -fphi)
             call set_vpa_weights(.False.)
          end if

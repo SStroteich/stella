@@ -585,7 +585,6 @@ contains
       implicit none
       !> NetCDF ID of the file to write to
       integer, intent(in) :: file_id
-      
 
 # ifdef NETCDF
       call neasyf_write(file_id, "dVolume", dVolume, dim_names=[character(len=5) :: "alpha", "kx", "zed"])
@@ -861,7 +860,7 @@ contains
 
 # ifdef NETCDF
       use neasyf, only: neasyf_write
-      use vpamu_grids, only: wgts_mu_bare,wgts_vpa
+      use vpamu_grids, only: wgts_mu_bare, wgts_vpa
 #endif
       implicit none
       !> NetCDF ID of the file to write to
@@ -871,7 +870,6 @@ contains
       call neasyf_write(file_id, "wgts_vpa", wgts_vpa, dim_names=[character(len=5) :: "vpa"])
 # endif
    end subroutine nc_vmu
-
 
    !> Get the index of the time dimension in the netCDF file that corresponds to
    !> a time no larger than `tstart`

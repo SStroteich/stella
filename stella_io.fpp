@@ -92,6 +92,8 @@ contains
 
          call nc_species(ncid)
          call nc_geo(ncid)
+         call nc_volume(ncid)
+         call nc_vmu(ncid)
          call save_input(ncid)
       end if
 # endif
@@ -574,16 +576,19 @@ contains
 # endif
    end subroutine write_fluxes_kxkyz_nc
 
-   subroutine nc_volume()
+   subroutine nc_volume(file_id)
 
 # ifdef NETCDF
       use neasyf, only: neasyf_write
       use stella_geometry, only: dVolume
 #endif
       implicit none
+      !> NetCDF ID of the file to write to
+      integer, intent(in) :: file_id
+      
 
 # ifdef NETCDF
-      call neasyf_write(ncid, "dVolume", dVolume, dim_names=[character(len=5) :: "alpha", "kx", "zed"])
+      call neasyf_write(file_id, "dVolume", dVolume, dim_names=[character(len=5) :: "alpha", "kx", "zed"])
 # endif
    end subroutine nc_volume
 
@@ -850,6 +855,23 @@ contains
                         long_name="2*pi*shat*dky/dkx")
 # endif
    end subroutine nc_geo
+
+   !> Write weights of the velocity space
+   subroutine nc_vmu(file_id)
+
+# ifdef NETCDF
+      use neasyf, only: neasyf_write
+      use vpamu_grids, only: wgts_mu_bare,wgts_vpa
+#endif
+      implicit none
+      !> NetCDF ID of the file to write to
+      integer, intent(in) :: file_id
+# ifdef NETCDF
+      call neasyf_write(file_id, "wgts_mu_bare", wgts_mu_bare, dim_names=[character(len=5) :: "mu"])
+      call neasyf_write(file_id, "wgts_vpa", wgts_vpa, dim_names=[character(len=5) :: "vpa"])
+# endif
+   end subroutine nc_vmu
+
 
    !> Get the index of the time dimension in the netCDF file that corresponds to
    !> a time no larger than `tstart`

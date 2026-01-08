@@ -106,7 +106,6 @@ contains
       use stella_io, only: init_stella_io, get_nout
       use convergence, only: init_convergence, init_overflow
       use mp, only: broadcast, proc0
-      use stella_io, only: nc_volume
       use energy_diagnostic, only: init_energy_diagnostic
 
       implicit none
@@ -146,7 +145,6 @@ contains
 
       !> Open the '.out', '.fluxes' and '.omega' file
       if (proc0) call open_loop_ascii_files(restart)
-      if (proc0 .and. write_energy) call nc_volume()
 
       !> Get the final position [[nout]] of the time axis in the netcdf file
       if (proc0) call get_nout(tstart, nout)
